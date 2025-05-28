@@ -22,7 +22,7 @@ const jitiLoader: Loader = async (filename: string) => {
 type PromptOptions = Exclude<Parameters<typeof prompt>[0], ((this: any) => any) | any[]>
 
 type Explorer = ReturnType<typeof cosmiconfig>
-type CosmiconfigResult<T = LoaderResult> = Omit<Exclude<Awaited<ReturnType<Explorer['search']>>, null>, 'config'> & {
+type ConfigLoaderResult<T = LoaderResult> = Omit<Exclude<Awaited<ReturnType<Explorer['search']>>, null>, 'config'> & {
   config: T
 }
 
@@ -62,12 +62,12 @@ function getExplorer(moduleName: string): Explorer {
   })
 }
 
-async function search<T>(moduleName: string): Promise<CosmiconfigResult<T>> {
-  return getExplorer(moduleName).search() as Promise<CosmiconfigResult<T>>
+async function search<T>(moduleName: string): Promise<ConfigLoaderResult<T>> {
+  return getExplorer(moduleName).search() as Promise<ConfigLoaderResult<T>>
 }
 
-async function load<T>(moduleName: string, filename: string): Promise<CosmiconfigResult<T>> {
-  return getExplorer(moduleName).load(filename) as Promise<CosmiconfigResult<T>>
+async function load<T>(moduleName: string, filename: string): Promise<ConfigLoaderResult<T>> {
+  return getExplorer(moduleName).load(filename) as Promise<ConfigLoaderResult<T>>
 }
 
 interface LoadConfigOptions<T = Record<string, any>> {
@@ -83,7 +83,7 @@ interface LoadConfigOptions<T = Record<string, any>> {
   prompts?: Array<PromptOptions> | ((config: T) => Array<PromptOptions> | Promise<PromptOptions>)
 }
 
-export async function loadConfig<T extends Record<string, any> = Record<string, any>>(options: LoadConfigOptions<T>): Promise<CosmiconfigResult<T>> {
+export async function loadConfig<T extends Record<string, any> = Record<string, any>>(options: LoadConfigOptions<T>): Promise<ConfigLoaderResult<T>> {
   const envName = options?.envName ?? process.env.NODE_ENV
   const cwd = resolve(process.cwd(), options?.cwd || '.')
   const dotenv = options?.dotenv ?? true
@@ -92,7 +92,7 @@ export async function loadConfig<T extends Record<string, any> = Record<string, 
   const moduleConfig = await search<T>(options.name)
 
   // 2: dedicated config file
-  const extraConfig = options.configFile ? await load<T>(options.name, options.configFile) : ({} as CosmiconfigResult<T>)
+  const extraConfig = options.configFile ? await load<T>(options.name, options.configFile) : ({} as ConfigLoaderResult<T>)
 
   const _config = defu({}, options.overrides, extraConfig.config, moduleConfig.config, options.defaultConfig) as T
   const filepath = extraConfig.filepath || moduleConfig.filepath

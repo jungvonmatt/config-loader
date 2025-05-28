@@ -24,7 +24,7 @@ A flexible configuration loader that combines multiple configuration sources wit
 
 ```sh
 # ✨ Auto-detect (supports npm, yarn, pnpm, deno and bun)
-npx nypm install packageName
+npx nypm install @jungvonmatt/config-loader
 ```
 
 ## Usage
@@ -34,13 +34,13 @@ npx nypm install packageName
 **ESM** (Node.js, Bun, Deno)
 
 ```js
-import {} from "@jungvonmatt/config-loader";
+import { loadConfig } from "@jungvonmatt/config-loader";
 ```
 
 **CDN** (Deno, Bun and Browsers)
 
 ```js
-import {} from "https://esm.sh/@jungvonmatt/config-loader";
+import { loadConfig } from "https://esm.sh/@jungvonmatt/config-loader";
 ```
 
 <!-- /automd -->
@@ -177,7 +177,7 @@ For example, with `name: "myapp"`:
 #### Returns
 
 ```typescript
-interface CosmiconfigResult<T> {
+interface ConfigLoaderResult<T> {
   config: T              // The merged configuration object
   filepath: string       // Path to the config file that was loaded
   isEmpty: boolean       // Whether the config file was empty
