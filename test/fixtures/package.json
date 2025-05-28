@@ -1,0 +1,12 @@
+{
+  "name": "test-package",
+  "version": "1.0.0",
+  "testconfig": {
+    "environment": "test",
+    "debug": true,
+    "server": {
+      "port": 3000,
+      "host": "0.0.0.0"
+    }
+  }
+}

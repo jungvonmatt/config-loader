@@ -9,7 +9,7 @@
 
 > Load configuration from files, environment variables, and interactively prompt for missing values
 
-A flexible configuration loader that combines multiple configuration sources with interactive prompts for missing required values. Built on top of [cosmiconfig](https://github.com/cosmiconfig/cosmiconfig) and [jiti](https://github.com/unjs/jiti) with additional features for environment variable mapping and user prompts.
+A flexible configuration loader that combines multiple configuration sources with interactive prompts for missing required values. Inspired by [c12](https://github.com/unjs/c12), built on top of [cosmiconfig](https://github.com/cosmiconfig/cosmiconfig) and [jiti](https://github.com/unjs/jiti) with additional features for environment variable mapping and user prompts.
 
 ## Features
 
@@ -34,13 +34,13 @@ npx nypm install @jungvonmatt/config-loader
 **ESM** (Node.js, Bun, Deno)
 
 ```js
-import { loadConfig } from "@jungvonmatt/config-loader";
+import {} from "@jungvonmatt/config-loader";
 ```
 
 **CDN** (Deno, Bun and Browsers)
 
 ```js
-import { loadConfig } from "https://esm.sh/@jungvonmatt/config-loader";
+import {} from "https://esm.sh/@jungvonmatt/config-loader";
 ```
 
 <!-- /automd -->
@@ -48,56 +48,56 @@ import { loadConfig } from "https://esm.sh/@jungvonmatt/config-loader";
 ### Basic Example
 
 ```js
-import { loadConfig } from '@jungvonmatt/config-loader'
+import { loadConfig } from "@jungvonmatt/config-loader";
 
 const { config } = await loadConfig({
-  name: 'myapp',
+  name: "myapp",
   defaultConfig: {
     port: 3000,
-    host: 'localhost'
-  }
-})
+    host: "localhost",
+  },
+});
 
-console.log(config.port) // 3000
+console.log(config.port); // 3000
 ```
 
 ### With Required Fields and Prompts
 
 ```js
-import { loadConfig } from '@jungvonmatt/config-loader'
+import { loadConfig } from "@jungvonmatt/config-loader";
 
 const { config } = await loadConfig({
-  name: 'myapp',
-  required: ['apiKey', 'databaseUrl'],
+  name: "myapp",
+  required: ["apiKey", "databaseUrl"],
   prompts: [
     {
-      name: 'apiKey',
-      type: 'password',
-      message: 'Enter your API key:'
+      name: "apiKey",
+      type: "password",
+      message: "Enter your API key:",
     },
     {
-      name: 'databaseUrl',
-      type: 'input',
-      message: 'Enter database URL:'
-    }
-  ]
-})
+      name: "databaseUrl",
+      type: "input",
+      message: "Enter database URL:",
+    },
+  ],
+});
 ```
 
 ### Environment Variable Mapping
 
 ```js
 const { config } = await loadConfig({
-  name: 'myapp',
+  name: "myapp",
   envMap: {
-    'DATABASE_URL': 'databaseUrl',
-    'API_KEY': 'apiKey',
-    'PORT': 'port'
+    DATABASE_URL: "databaseUrl",
+    API_KEY: "apiKey",
+    PORT: "port",
   },
   defaultConfig: {
-    port: 3000
-  }
-})
+    port: 3000,
+  },
+});
 ```
 
 ## Configuration Files
@@ -117,6 +117,7 @@ Where `myapp` is the name you provide in the options.
 ### Example Config Files
 
 **`.myapprc.json`**
+
 ```json
 {
   "port": 8080,
@@ -127,13 +128,14 @@ Where `myapp` is the name you provide in the options.
 ```
 
 **`myapp.config.js`**
+
 ```js
 export default {
   port: process.env.PORT || 3000,
   database: {
-    url: process.env.DATABASE_URL
-  }
-}
+    url: process.env.DATABASE_URL,
+  },
+};
 ```
 
 ## Environment Variables
@@ -141,17 +143,20 @@ export default {
 ### Automatic Environment Loading
 
 Environment variables are automatically loaded from `.env` files:
+
 - `.env.{NODE_ENV}` (e.g., `.env.production`)
 - `.env`
 
 ### Configuration Override Pattern
 
 Any configuration can be overridden using environment variables with the pattern:
+
 ```
 {NAME}_CONFIG_{PATH}
 ```
 
 For example, with `name: "myapp"`:
+
 - `MYAPP_CONFIG_PORT=8080` sets `config.port = 8080`
 - `MYAPP_CONFIG_DATABASE_URL=...` sets `config.databaseUrl = ...`
 
@@ -161,26 +166,26 @@ For example, with `name: "myapp"`:
 
 #### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `name` | `string` | **Required** | Name of the configuration (used for file searching) |
-| `defaultConfig` | `Partial<T>` | `{}` | Default configuration values |
-| `overrides` | `Partial<T>` | `{}` | Configuration overrides (highest priority) |
-| `required` | `Array<keyof T>` | `[]` | Array of required configuration keys |
-| `envMap` | `Record<string, keyof T>` | `{}` | Map environment variable names to config keys |
-| `dotenv` | `boolean` | `true` | Whether to load .env files |
-| `envName` | `string \| false` | `process.env.NODE_ENV` | Environment name for .env.{envName} file |
-| `cwd` | `string` | `process.cwd()` | Working directory for file searching |
-| `configFile` | `string` | `undefined` | Path to a specific config file to load |
-| `prompts` | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]` | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details |
+| Option          | Type                                                  | Default                | Description                                                                                                     |
+| --------------- | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `name`          | `string`                                              | **Required**           | Name of the configuration (used for file searching)                                                             |
+| `defaultConfig` | `Partial<T>`                                          | `{}`                   | Default configuration values                                                                                    |
+| `overrides`     | `Partial<T>`                                          | `{}`                   | Configuration overrides (highest priority)                                                                      |
+| `required`      | `Array<keyof T>`                                      | `[]`                   | Array of required configuration keys                                                                            |
+| `envMap`        | `Record<string, keyof T>`                             | `{}`                   | Map environment variable names to config keys                                                                   |
+| `dotenv`        | `boolean`                                             | `true`                 | Whether to load .env files                                                                                      |
+| `envName`       | `string \| false`                                     | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                        |
+| `cwd`           | `string`                                              | `process.cwd()`        | Working directory for file searching                                                                            |
+| `configFile`    | `string`                                              | `undefined`            | Path to a specific config file to load                                                                          |
+| `prompts`       | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details |
 
 #### Returns
 
 ```typescript
 interface ConfigLoaderResult<T> {
-  config: T              // The merged configuration object
-  filepath: string       // Path to the config file that was loaded
-  isEmpty: boolean       // Whether the config file was empty
+  config: T; // The merged configuration object
+  filepath: string; // Path to the config file that was loaded
+  isEmpty: boolean; // Whether the config file was empty
 }
 ```
 
@@ -190,11 +195,11 @@ Prompts use [enquirer](https://github.com/enquirer/enquirer) under the hood:
 
 ```typescript
 interface PromptOptions {
-  name: string           // Configuration key name
-  type: string           // Prompt type: 'input', 'password', 'select', etc.
-  message: string        // Prompt message
-  choices?: string[]     // For select/multiselect prompts
-  initial?: any          // Default value
+  name: string; // Configuration key name
+  type: string; // Prompt type: 'input', 'password', 'select', etc.
+  message: string; // Prompt message
+  choices?: string[]; // For select/multiselect prompts
+  initial?: any; // Default value
   // ... other enquirer options
 }
 ```

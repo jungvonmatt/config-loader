@@ -1,4 +1,3 @@
-
 import destr from "destr";
 import { snakeCase } from "scule";
 
@@ -15,7 +14,7 @@ export type EnvOptions = {
 export function getEnv(key: string, opts: EnvOptions) {
   const envKey = snakeCase(key).toUpperCase();
   return destr(
-    process.env[opts.prefix + envKey] ?? process.env[opts.altPrefix + envKey]
+    process.env[opts.prefix + envKey] ?? process.env[opts.altPrefix + envKey],
   );
 }
 
@@ -26,7 +25,7 @@ function _isObject(input: unknown) {
 export function applyEnv(
   obj: Record<string, any>,
   opts: EnvOptions,
-  parentKey = ""
+  parentKey = "",
 ) {
   for (const key in obj) {
     const subKey = parentKey ? `${parentKey}_${key}` : key;

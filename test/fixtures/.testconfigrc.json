@@ -1,0 +1,11 @@
+{
+  "mode": "development",
+  "cache": {
+    "enabled": true,
+    "ttl": 3600
+  },
+  "logging": {
+    "level": "debug",
+    "format": "json"
+  }
+}
