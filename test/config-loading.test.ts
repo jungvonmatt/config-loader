@@ -384,9 +384,9 @@ describe("Config Loading", () => {
       });
 
       expect(result.config.str).toBe("hello world");
-      expect(result.config.num).toBe("123.45");
-      expect(result.config.bool).toBe("true");
-      expect(result.config.obj).toBe('{"key": "value", "nested": {"num": 42}}');
+      expect(result.config.num).toBe(123.45);
+      expect(result.config.bool).toBe(true);
+      expect(result.config.obj).toEqual({ key: "value", nested: { num: 42 } });
     });
   });
 

@@ -4,6 +4,7 @@ import enquirer from "enquirer";
 import fs from "node:fs";
 import { cosmiconfig } from "cosmiconfig";
 import { createDefu } from "defu";
+import destr from "destr";
 import { createJiti } from "jiti";
 import { resolve } from "pathe";
 import { applyEnv } from "./env";
@@ -205,7 +206,7 @@ export async function loadConfig<
 
     // apply environment variables from envMap
     for (const [envKey, key] of Object.entries(envMap)) {
-      const value = process.env[envKey];
+      const value = destr(process.env[envKey]);
       if (value !== undefined) {
         envConfig[key] = value as T[keyof T];
       }
