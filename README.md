@@ -1,16 +1,9 @@
 # @jungvonmatt/config-loader
 
-
-
 [![npm version](https://img.shields.io/npm/v/@jungvonmatt/config-loader?color=yellow)](https://npmjs.com/package/@jungvonmatt/config-loader)
 [![npm downloads](https://img.shields.io/npm/dm/@jungvonmatt/config-loader?color=yellow)](https://npm.chart.dev/@jungvonmatt/config-loader)
 [![build status](https://github.com/jungvonmatt/config-loader/actions/workflows/ci.yml/badge.svg)](https://github.com/jungvonmatt/config-loader/actions)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@jungvonmatt/config-loader?color=yellow)](https://bundlephobia.com/package/@jungvonmatt/config-loader)
-[![install size](https://badgen.net/packagephobia/install/@jungvonmatt/config-loader?color=yellow)](https://packagephobia.com/result?p=@jungvonmatt/config-loader)
-[![codecov](https://img.shields.io/codecov/c/gh/jungvonmatt/config-loader?color=yellow)](https://codecov.io/gh/jungvonmatt/config-loader)
-
-
-
 
 > Load configuration from files, environment variables, and interactively prompt for missing values
 
@@ -165,20 +158,20 @@ For example, with `name: "myapp"`:
 
 #### Options
 
-| Option          | Type                                                  | Default                | Description                                                                                                     |
-| --------------- | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `name`          | `string`                                              | **Required**           | Name of the configuration (used for file searching)                                                             |
-| `searchStrategy` | `SearchStrategy`                                     | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                     |
-| `searchPlaces`  | `string[]`                                            | See below              | Array of file paths/patterns to search for config files                                                        |
-| `defaultConfig` | `Partial<T>`                                          | `{}`                   | Default configuration values                                                                                    |
-| `overrides`     | `Partial<T>`                                          | `{}`                   | Configuration overrides (highest priority)                                                                      |
-| `required`      | `Array<keyof T>`                                      | `[]`                   | Array of required configuration keys                                                                            |
-| `envMap`        | `Record<string, keyof T>`                             | `{}`                   | Map environment variable names to config keys                                                                   |
-| `dotenv`        | `boolean`                                             | `true`                 | Whether to load .env files                                                                                      |
-| `envName`       | `string \| false`                                     | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                        |
-| `cwd`           | `string`                                              | `process.cwd()`        | Working directory for file searching                                                                            |
-| `configFile`    | `string`                                              | `undefined`            | Path to a specific config file to load                                                                          |
-| `prompts`       | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details |
+| Option           | Type                                                  | Default                | Description                                                                                                     |
+| ---------------- | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `name`           | `string`                                              | **Required**           | Name of the configuration (used for file searching)                                                             |
+| `searchStrategy` | `SearchStrategy`                                      | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                      |
+| `searchPlaces`   | `string[]`                                            | See below              | Array of file paths/patterns to search for config files                                                         |
+| `defaultConfig`  | `Partial<T>`                                          | `{}`                   | Default configuration values                                                                                    |
+| `overrides`      | `Partial<T>`                                          | `{}`                   | Configuration overrides (highest priority)                                                                      |
+| `required`       | `Array<keyof T>`                                      | `[]`                   | Array of required configuration keys                                                                            |
+| `envMap`         | `Record<string, keyof T>`                             | `{}`                   | Map environment variable names to config keys                                                                   |
+| `dotenv`         | `boolean`                                             | `true`                 | Whether to load .env files                                                                                      |
+| `envName`        | `string \| false`                                     | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                        |
+| `cwd`            | `string`                                              | `process.cwd()`        | Working directory for file searching                                                                            |
+| `configFile`     | `string`                                              | `undefined`            | Path to a specific config file to load                                                                          |
+| `prompts`        | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details |
 
 #### Default Search Places
 
@@ -296,15 +289,12 @@ console.log(`Starting server on ${config.host}:${config.port}`)
 
 ## License
 
-
-
 Published under the [MIT](https://github.com/jungvonmatt/config-loader/blob/main/LICENSE) license.
 Made by [Jung von Matt TECH](https://github.com/jungvonmatt/config-loader/graphs/contributors) 💚
 <br><br>
 <a href="https://github.com/jungvonmatt/config-loader/graphs/contributors">
 <img src="https://contrib.rocks/image?repo=jungvonmatt/config-loader" />
 </a>
-
 
 <!-- automd:with-automd -->
 
