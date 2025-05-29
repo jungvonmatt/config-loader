@@ -1,6 +1,6 @@
 # @jungvonmatt/config-loader
 
-<!-- automd:badges color=yellow -->
+<!-- automd:badges color=yellow name="@jungvonmatt/config-loader" codecov bundlephobia packagephobia  -->
 
 [![npm version](https://img.shields.io/npm/v/@jungvonmatt/config-loader?color=yellow)](https://npmjs.com/package/@jungvonmatt/config-loader)
 [![npm downloads](https://img.shields.io/npm/dm/@jungvonmatt/config-loader?color=yellow)](https://npm.chart.dev/@jungvonmatt/config-loader)
@@ -29,7 +29,7 @@ npx nypm install @jungvonmatt/config-loader
 
 ## Usage
 
-<!-- automd:jsimport cdn name="@jungvonmatt/config-loader" -->
+<!-- automd:jsimport name="@jungvonmatt/config-loader" imports="loadConfig" -->
 
 **ESM** (Node.js, Bun, Deno)
 
@@ -169,6 +169,8 @@ For example, with `name: "myapp"`:
 | Option          | Type                                                  | Default                | Description                                                                                                     |
 | --------------- | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `name`          | `string`                                              | **Required**           | Name of the configuration (used for file searching)                                                             |
+| `searchStrategy` | `SearchStrategy`                                     | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                     |
+| `searchPlaces`  | `string[]`                                            | See below              | Array of file paths/patterns to search for config files                                                        |
 | `defaultConfig` | `Partial<T>`                                          | `{}`                   | Default configuration values                                                                                    |
 | `overrides`     | `Partial<T>`                                          | `{}`                   | Configuration overrides (highest priority)                                                                      |
 | `required`      | `Array<keyof T>`                                      | `[]`                   | Array of required configuration keys                                                                            |
@@ -178,6 +180,21 @@ For example, with `name: "myapp"`:
 | `cwd`           | `string`                                              | `process.cwd()`        | Working directory for file searching                                                                            |
 | `configFile`    | `string`                                              | `undefined`            | Path to a specific config file to load                                                                          |
 | `prompts`       | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details |
+
+#### Default Search Places
+
+When `searchPlaces` is not specified, the following locations are searched (where `{name}` is your config name):
+
+- `package.json`
+- `.{name}rc`
+- `.{name}rc.json`
+- `.{name}rc.yaml` / `.{name}rc.yml`
+- `.{name}rc.js` / `.{name}rc.ts` / `.{name}rc.mjs` / `.{name}rc.cjs`
+- `.config/.{name}rc`
+- `.config/.{name}rc.json`
+- `.config/.{name}rc.yaml` / `.config/.{name}rc.yml`
+- `.config/.{name}rc.js` / `.config/.{name}rc.ts` / `.config/.{name}rc.mjs` / `.config/.{name}rc.cjs`
+- `{name}.config.js` / `{name}.config.ts` / `{name}.config.mjs` / `{name}.config.cjs`
 
 #### Returns
 
@@ -280,16 +297,15 @@ console.log(`Starting server on ${config.host}:${config.port}`)
 
 ## License
 
-<!-- automd:contributors license=MIT -->
+
 
 Published under the [MIT](https://github.com/jungvonmatt/config-loader/blob/main/LICENSE) license.
-Made by [community](https://github.com/jungvonmatt/config-loader/graphs/contributors) 💛
+Made by [Jung von Matt TECH](https://github.com/jungvonmatt/config-loader/graphs/contributors) 💚
 <br><br>
 <a href="https://github.com/jungvonmatt/config-loader/graphs/contributors">
 <img src="https://contrib.rocks/image?repo=jungvonmatt/config-loader" />
 </a>
 
-<!-- /automd -->
 
 <!-- automd:with-automd -->
 
