@@ -33,7 +33,7 @@ export function applyEnv(
     if (_isObject(obj[key])) {
       // Same as before
       if (_isObject(envValue)) {
-        obj[key] = { ...(obj[key] as any), ...(envValue as any) };
+        obj[key] = { ...obj[key], ...(envValue as any) };
         applyEnv(obj[key], opts, subKey);
       }
       // If envValue is undefined
