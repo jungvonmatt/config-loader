@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@jungvonmatt/config-loader?color=yellow)](https://npmjs.com/package/@jungvonmatt/config-loader)
 [![npm downloads](https://img.shields.io/npm/dm/@jungvonmatt/config-loader?color=yellow)](https://npm.chart.dev/@jungvonmatt/config-loader)
 [![build status](https://github.com/jungvonmatt/config-loader/actions/workflows/ci.yml/badge.svg)](https://github.com/jungvonmatt/config-loader/actions)
+[![sonarcloud status](https://sonarcloud.io/api/project_badges/measure?project=jungvonmatt_config-loader&metric=alert_status)](https://sonarcloud.io/dashboard?id=jungvonmatt_config-loader)metric=alert_status
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@jungvonmatt/config-loader?color=yellow)](https://bundlephobia.com/package/@jungvonmatt/config-loader)
 
 > Load configuration from files, environment variables, and interactively prompt for missing values
