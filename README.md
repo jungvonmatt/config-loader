@@ -1,11 +1,16 @@
 # @jungvonmatt/config-loader
 
-<!-- automd:badges color=yellow name="@jungvonmatt/config-loader" codecov bundlephobia packagephobia  -->
+
 
 [![npm version](https://img.shields.io/npm/v/@jungvonmatt/config-loader?color=yellow)](https://npmjs.com/package/@jungvonmatt/config-loader)
 [![npm downloads](https://img.shields.io/npm/dm/@jungvonmatt/config-loader?color=yellow)](https://npm.chart.dev/@jungvonmatt/config-loader)
+[![build status](https://github.com/jungvonmatt/config-loader/actions/workflows/ci.yml/badge.svg)](https://github.com/jungvonmatt/config-loader/actions)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@jungvonmatt/config-loader?color=yellow)](https://bundlephobia.com/package/@jungvonmatt/config-loader)
+[![install size](https://badgen.net/packagephobia/install/@jungvonmatt/config-loader?color=yellow)](https://packagephobia.com/result?p=@jungvonmatt/config-loader)
+[![codecov](https://img.shields.io/codecov/c/gh/jungvonmatt/config-loader?color=yellow)](https://codecov.io/gh/jungvonmatt/config-loader)
 
-<!-- /automd -->
+
+
 
 > Load configuration from files, environment variables, and interactively prompt for missing values
 
@@ -34,13 +39,7 @@ npx nypm install @jungvonmatt/config-loader
 **ESM** (Node.js, Bun, Deno)
 
 ```js
-import {} from "@jungvonmatt/config-loader";
-```
-
-**CDN** (Deno, Bun and Browsers)
-
-```js
-import {} from "https://esm.sh/@jungvonmatt/config-loader";
+import { loadConfig } from "@jungvonmatt/config-loader";
 ```
 
 <!-- /automd -->
