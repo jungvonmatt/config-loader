@@ -7,6 +7,7 @@ import { createDefu } from "defu";
 import destr from "destr";
 import { createJiti } from "jiti";
 import { resolve } from "pathe";
+import { hasTTY } from "std-env";
 import { applyEnv } from "./env";
 import { snakeCase } from "scule";
 import { klona } from "klona";
@@ -221,29 +222,42 @@ export async function loadConfig<
     const keys = Object.keys(config) as Array<keyof T>;
     const missing = options.required.filter((key) => !keys.includes(key));
 
-    const prompts = Array.isArray(options.prompts)
-      ? options.prompts
-      : ((await options?.prompts?.(config)) ?? undefined);
-
-    const findPrompt = (name: string) => {
-      const fallback: PromptOptions = {
-        name,
-        type: "input",
-        message: `Please specify value for "${name}"`,
-      };
-
-      if (Array.isArray(prompts)) {
-        return prompts.find((prompt) => prompt.name === name) || fallback;
+    if (missing.length > 0) {
+      if (!hasTTY) {
+        const missingKeys = missing.join(", ");
+        throw new Error(
+          `Configuration validation failed: Required fields are missing [${missingKeys}]. ` +
+            `TTY is not available for interactive prompts. Please provide these values via environment variables or configuration files.`,
+        );
       }
 
-      return fallback;
-    };
+      const prompts = Array.isArray(options.prompts)
+        ? options.prompts
+        : ((await options?.prompts?.(config)) ?? undefined);
 
-    const missingPrompts = missing.map((key) => findPrompt(key as string));
+      const findPrompt = (name: string) => {
+        const fallback: PromptOptions = {
+          name,
+          type: "input",
+          message: `Please specify value for "${name}"`,
+        };
 
-    const response = await prompt<Partial<T>>(missingPrompts);
+        if (Array.isArray(prompts)) {
+          return prompts.find((prompt) => prompt.name === name) || fallback;
+        }
 
-    return { config: defu({}, response, config) as TResult, filepath, isEmpty };
+        return fallback;
+      };
+
+      const missingPrompts = missing.map((key) => findPrompt(key as string));
+
+      const response = await prompt<Partial<T>>(missingPrompts);
+      return {
+        config: defu({}, response, config) as TResult,
+        filepath,
+        isEmpty,
+      };
+    }
   }
 
   return { config, filepath, isEmpty };

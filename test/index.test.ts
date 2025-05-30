@@ -12,6 +12,10 @@ vi.mock("@dotenvx/dotenvx", () => ({
   config: vi.fn(),
 }));
 
+vi.mock("std-env", () => ({
+  hasTTY: true, // Default to true for most tests
+}));
+
 describe("loadConfig", () => {
   const originalEnv = process.env;
 

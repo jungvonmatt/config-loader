@@ -12,6 +12,10 @@ vi.mock("@dotenvx/dotenvx", () => ({
   config: vi.fn(),
 }));
 
+vi.mock("std-env", () => ({
+  hasTTY: true, // Default to true, will be overridden in specific tests
+}));
+
 describe("Configuration Prompts", () => {
   const originalEnv = process.env;
 
@@ -123,7 +127,6 @@ describe("Configuration Prompts", () => {
     it("skips prompting when no required fields are missing", async () => {
       const enquirer = await import("enquirer");
       const mockPrompt = vi.mocked(enquirer.default.prompt);
-      mockPrompt.mockResolvedValue({}); // Return empty object for empty prompt
 
       const result = await loadConfig({
         name: "no-missing",
@@ -134,8 +137,8 @@ describe("Configuration Prompts", () => {
         required: ["field1", "field2"],
       });
 
-      // Even when no fields are missing, prompt gets called with empty array
-      expect(mockPrompt).toHaveBeenCalledWith([]);
+      // Should not prompt when all required fields are present
+      expect(mockPrompt).not.toHaveBeenCalled();
 
       expect(result.config).toEqual({
         field1: "value1",
@@ -159,7 +162,6 @@ describe("Configuration Prompts", () => {
     it("handles required fields with falsy but valid values", async () => {
       const enquirer = await import("enquirer");
       const mockPrompt = vi.mocked(enquirer.default.prompt);
-      mockPrompt.mockResolvedValue({}); // Return empty object for empty prompt
 
       const result = await loadConfig({
         name: "falsy-valid",
@@ -171,8 +173,8 @@ describe("Configuration Prompts", () => {
         required: ["enableFeature", "maxRetries", "emptyString"],
       });
 
-      // Even when all required fields are present, prompt gets called with empty array
-      expect(mockPrompt).toHaveBeenCalledWith([]);
+      // Should not prompt when all required fields are present (even if falsy)
+      expect(mockPrompt).not.toHaveBeenCalled();
 
       expect(result.config.enableFeature).toBe(false);
       expect(result.config.maxRetries).toBe(0);
@@ -458,8 +460,7 @@ describe("Configuration Prompts", () => {
 
   describe("Prompt Integration with Other Features", () => {
     it("prompts override environment variables and default config", async () => {
-      process.env.MYAPP_CONFIG_PASSWORD = "env-password";
-
+      // Don't set the env variable for the field we want to prompt for
       const enquirer = await import("enquirer");
       const mockPrompt = vi.mocked(enquirer.default.prompt);
       mockPrompt.mockResolvedValue({ password: "prompted-password" });
@@ -470,7 +471,10 @@ describe("Configuration Prompts", () => {
         required: ["password"],
       });
 
-      expect(result.config.password).toBe("prompted-password");
+      // Should not prompt since password is already in defaultConfig
+      expect(mockPrompt).not.toHaveBeenCalled();
+
+      expect(result.config.password).toBe("default-password");
     });
 
     it("respects overrides even when prompting", async () => {
@@ -545,6 +549,144 @@ describe("Configuration Prompts", () => {
           required: ["required"],
         }),
       ).rejects.toThrow("User cancelled");
+    });
+  });
+
+  describe("TTY Detection", () => {
+    beforeEach(() => {
+      // Reset std-env mock before each test
+      vi.resetModules();
+    });
+
+    it("prompts when TTY is available and required fields are missing", async () => {
+      // Mock TTY as available
+      vi.doMock("std-env", () => ({
+        hasTTY: true,
+      }));
+
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({ apiKey: "prompted-key" });
+
+      // Reimport loadConfig to get fresh module with TTY=true
+      const { loadConfig: freshLoadConfig } = await import("../src");
+
+      const result = await freshLoadConfig({
+        name: "tty-available",
+        defaultConfig: {},
+        required: ["apiKey"],
+      });
+
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "apiKey",
+          type: "input",
+          message: 'Please specify value for "apiKey"',
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        apiKey: "prompted-key",
+      });
+    });
+
+    it("throws error when TTY is not available and required fields are missing", async () => {
+      // Mock TTY as not available
+      vi.doMock("std-env", () => ({
+        hasTTY: false,
+      }));
+
+      // Reimport loadConfig to get fresh module with TTY=false
+      const { loadConfig: freshLoadConfig } = await import("../src");
+
+      await expect(
+        freshLoadConfig({
+          name: "no-tty",
+          defaultConfig: {},
+          required: ["apiKey", "dbPassword"],
+        }),
+      ).rejects.toThrow(
+        "Configuration validation failed: Required fields are missing [apiKey, dbPassword]. " +
+          "TTY is not available for interactive prompts. Please provide these values via environment variables or configuration files.",
+      );
+    });
+
+    it("works normally when TTY is not available but no required fields are missing", async () => {
+      // Mock TTY as not available
+      vi.doMock("std-env", () => ({
+        hasTTY: false,
+      }));
+
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+
+      // Reimport loadConfig to get fresh module with TTY=false
+      const { loadConfig: freshLoadConfig } = await import("../src");
+
+      const result = await freshLoadConfig({
+        name: "no-tty-complete",
+        defaultConfig: {
+          apiKey: "default-key",
+          dbPassword: "default-password",
+        },
+        required: ["apiKey", "dbPassword"],
+      });
+
+      // Should not prompt at all
+      expect(mockPrompt).not.toHaveBeenCalled();
+
+      expect(result.config).toEqual({
+        apiKey: "default-key",
+        dbPassword: "default-password",
+      });
+    });
+
+    it("works normally when TTY is not available and no required fields specified", async () => {
+      // Mock TTY as not available
+      vi.doMock("std-env", () => ({
+        hasTTY: false,
+      }));
+
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+
+      // Reimport loadConfig to get fresh module with TTY=false
+      const { loadConfig: freshLoadConfig } = await import("../src");
+
+      const result = await freshLoadConfig({
+        name: "no-tty-no-required",
+        defaultConfig: {
+          optional: "value",
+        },
+      });
+
+      // Should not prompt at all
+      expect(mockPrompt).not.toHaveBeenCalled();
+
+      expect(result.config).toEqual({
+        optional: "value",
+      });
+    });
+
+    it("throws specific error for single missing field when TTY unavailable", async () => {
+      // Mock TTY as not available
+      vi.doMock("std-env", () => ({
+        hasTTY: false,
+      }));
+
+      // Reimport loadConfig to get fresh module with TTY=false
+      const { loadConfig: freshLoadConfig } = await import("../src");
+
+      await expect(
+        freshLoadConfig({
+          name: "single-missing",
+          defaultConfig: { existing: "value" },
+          required: ["apiKey"],
+        }),
+      ).rejects.toThrow(
+        "Configuration validation failed: Required fields are missing [apiKey]. " +
+          "TTY is not available for interactive prompts. Please provide these values via environment variables or configuration files.",
+      );
     });
   });
 });
