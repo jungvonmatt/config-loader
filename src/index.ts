@@ -116,12 +116,20 @@ async function load<T>(
   throw new Error(`Config file ${filename} not found`);
 }
 
-interface LoadConfigOptions<
-  T extends Record<string, any>,
-  TOverrides extends Record<string, any>,
-  TDefaultConfig extends Record<string, any>,
-  TRequired extends Array<keyof T>,
-  TResult extends Record<string, any>,
+export interface LoadConfigOptions<
+  T extends Record<string, any> = Record<string, any>,
+  TOverrides extends Record<string, any> = {
+    [K in keyof T]: T[K];
+  },
+  TDefaultConfig extends Record<string, any> = {
+    [K in keyof T]: T[K];
+  },
+  TRequired extends Array<keyof T> = Array<keyof T>,
+  TResult extends Record<string, any> = T &
+    TOverrides &
+    TDefaultConfig & {
+      [K in TRequired[number]]?: any;
+    },
 > {
   name: string;
   searchStrategy?: SearchStrategy;
