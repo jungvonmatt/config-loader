@@ -41,6 +41,7 @@ type ConfigLoaderResult<T = LoaderResult> = Omit<
   config: T;
   isEmpty: boolean;
   filepath: string | undefined;
+  missing: string[];
 };
 
 // Create custom defu that replaces arrays instead of concatenating them
@@ -124,7 +125,9 @@ export interface LoadConfigOptions<
   TDefaultConfig extends Record<string, any> = {
     [K in keyof T]: T[K];
   },
-  TRequired extends Array<keyof T> = Array<keyof T>,
+  TRequired extends Array<Exclude<keyof T, number | symbol>> = Array<
+    Exclude<keyof T, number | symbol>
+  >,
   TResult extends Record<string, any> = T &
     TOverrides &
     TDefaultConfig & {
@@ -157,7 +160,9 @@ export async function loadConfig<
   TDefaultConfig extends Record<string, any> = {
     [K in keyof T]: T[K];
   },
-  TRequired extends Array<keyof T> = Array<keyof T>,
+  TRequired extends Array<Exclude<keyof T, number | symbol>> = Array<
+    Exclude<keyof T, number | symbol>
+  >,
   TResult extends Record<string, any> = T &
     TOverrides &
     TDefaultConfig & {
@@ -264,9 +269,10 @@ export async function loadConfig<
         config: defu({}, response, config) as TResult,
         filepath,
         isEmpty,
+        missing,
       };
     }
   }
 
-  return { config, filepath, isEmpty };
+  return { config, filepath, isEmpty, missing: [] };
 }
