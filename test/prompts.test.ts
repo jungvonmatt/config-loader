@@ -588,6 +588,7 @@ describe("Configuration Prompts", () => {
       expect(result.config).toEqual({
         apiKey: "prompted-key",
       });
+      expect(result.missing).toEqual(["apiKey"]);
     });
 
     it("throws error when TTY is not available and required fields are missing", async () => {
@@ -639,6 +640,7 @@ describe("Configuration Prompts", () => {
         apiKey: "default-key",
         dbPassword: "default-password",
       });
+      expect(result.missing).toEqual([]);
     });
 
     it("works normally when TTY is not available and no required fields specified", async () => {
@@ -666,6 +668,7 @@ describe("Configuration Prompts", () => {
       expect(result.config).toEqual({
         optional: "value",
       });
+      expect(result.missing).toEqual([]);
     });
 
     it("throws specific error for single missing field when TTY unavailable", async () => {
@@ -685,6 +688,108 @@ describe("Configuration Prompts", () => {
         }),
       ).rejects.toThrow(
         "Configuration validation failed: Required fields are missing [apiKey]. " +
+          "TTY is not available for interactive prompts. Please provide these values via environment variables or configuration files.",
+      );
+    });
+  });
+
+  describe("Missing Fields Return Value", () => {
+    it("returns empty missing array when no required fields specified", async () => {
+      const result = await loadConfig({
+        name: "no-required",
+        defaultConfig: { optional: "value" },
+      });
+
+      expect(result.missing).toEqual([]);
+    });
+
+    it("returns empty missing array when all required fields are present", async () => {
+      const result = await loadConfig({
+        name: "all-present",
+        defaultConfig: {
+          field1: "value1",
+          field2: "value2",
+        },
+        required: ["field1", "field2"],
+      });
+
+      expect(result.missing).toEqual([]);
+    });
+
+    it("returns missing fields after prompting fills them", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        missing1: "prompted1",
+        missing2: "prompted2",
+      });
+
+      const result = await loadConfig({
+        name: "prompt-missing",
+        defaultConfig: { existing: "value" },
+        required: ["existing", "missing1", "missing2"],
+      });
+
+      expect(result.missing).toEqual(["missing1", "missing2"]);
+      expect(result.config).toEqual({
+        existing: "value",
+        missing1: "prompted1",
+        missing2: "prompted2",
+      });
+    });
+  });
+
+  describe("Prompts Disabled", () => {
+    it("throws error when prompts are disabled and required fields are missing", async () => {
+      await expect(
+        loadConfig({
+          name: "prompts-disabled",
+          defaultConfig: { existing: "value" },
+          required: ["existing", "missing"],
+          prompts: false,
+        }),
+      ).rejects.toThrow(
+        "Configuration validation failed: Required fields are missing [missing]. " +
+          "TTY is not available for interactive prompts. Please provide these values via environment variables or configuration files.",
+      );
+    });
+
+    it("works normally when prompts are disabled but no required fields are missing", async () => {
+      const result = await loadConfig({
+        name: "prompts-disabled-complete",
+        defaultConfig: {
+          field1: "value1",
+          field2: "value2",
+        },
+        required: ["field1", "field2"],
+        prompts: false,
+      });
+
+      expect(result.config).toEqual({
+        field1: "value1",
+        field2: "value2",
+      });
+      expect(result.missing).toEqual([]);
+    });
+
+    it("throws error when prompts are disabled even with TTY available", async () => {
+      // Mock TTY as available
+      vi.doMock("std-env", () => ({
+        hasTTY: true,
+      }));
+
+      // Reimport loadConfig to get fresh module with TTY=true
+      const { loadConfig: freshLoadConfig } = await import("../src");
+
+      await expect(
+        freshLoadConfig({
+          name: "prompts-disabled-tty",
+          defaultConfig: {},
+          required: ["missing"],
+          prompts: false,
+        }),
+      ).rejects.toThrow(
+        "Configuration validation failed: Required fields are missing [missing]. " +
           "TTY is not available for interactive prompts. Please provide these values via environment variables or configuration files.",
       );
     });

@@ -143,11 +143,10 @@ export interface LoadConfigOptions<
   cwd?: string;
   configFile?: string;
   overrides?: Partial<TOverrides>;
-  // overrides?: Record<keyof T, T[keyof T]>;
   defaultConfig?: Partial<TDefaultConfig>;
-  // defaultConfig?: Record<keyof T, T[keyof T]>;
   required?: TRequired;
   prompts?:
+    | false
     | Array<PromptOptions>
     | ((config: TResult) => Array<PromptOptions> | Promise<PromptOptions>);
 }
@@ -236,7 +235,7 @@ export async function loadConfig<
     const missing = options.required.filter((key) => !keys.includes(key));
 
     if (missing.length > 0) {
-      if (!hasTTY) {
+      if (!hasTTY || options.prompts === false) {
         const missingKeys = missing.join(", ");
         throw new Error(
           `Configuration validation failed: Required fields are missing [${missingKeys}]. ` +

@@ -36,6 +36,7 @@ describe("loadConfig", () => {
 
     expect(result.config).toEqual({ foo: "bar", nested: { value: 42 } });
     expect(result.isEmpty).toBe(false);
+    expect(result.missing).toEqual([]);
   });
 
   it("applies environment variables using envMap", async () => {
@@ -44,7 +45,7 @@ describe("loadConfig", () => {
 
     const result = await loadConfig({
       name: "test",
-      defaultConfig: { database: "", api: "" },
+      // defaultConfig: { database: "", api: "" },
       envMap: {
         DATABASE_URL: "database",
         API_KEY: "api",
@@ -53,6 +54,7 @@ describe("loadConfig", () => {
 
     expect(result.config.database).toBe("postgres://localhost");
     expect(result.config.api).toBe("secret123");
+    expect(result.missing).toEqual([]);
   });
 
   it("applies environment variables using prefix pattern", async () => {
@@ -74,18 +76,20 @@ describe("loadConfig", () => {
     expect(result.config.database.host).toBe("localhost");
     expect(result.config.database.port).toBe(5432);
     expect(result.config.api.timeout).toBe("30_000");
+    expect(result.missing).toEqual([]);
   });
 
   it("skips dotenv loading when dotenv option is false", async () => {
     const { config: dotenvxConfig } = await import("@dotenvx/dotenvx");
 
-    await loadConfig({
+    const result = await loadConfig({
       name: "test",
       defaultConfig: {},
       dotenv: false,
     });
 
     expect(dotenvxConfig).not.toHaveBeenCalled();
+    expect(result.missing).toEqual([]);
   });
 
   it("prompts for missing required fields", async () => {
@@ -122,6 +126,7 @@ describe("loadConfig", () => {
       apiKey: "prompted-key",
       database: "prompted-db",
     });
+    expect(result.missing).toEqual(["apiKey", "database"]);
   });
 
   it("applies configuration in correct precedence order", async () => {
@@ -135,6 +140,7 @@ describe("loadConfig", () => {
 
     // Overrides should have highest precedence
     expect(result.config.value).toBe("override");
+    expect(result.missing).toEqual([]);
   });
 
   it("handles empty configuration gracefully", async () => {
@@ -143,6 +149,7 @@ describe("loadConfig", () => {
     });
 
     expect(result.config).toEqual({});
+    expect(result.missing).toEqual([]);
   });
 
   it("handles complex nested configuration merging", async () => {
@@ -160,5 +167,6 @@ describe("loadConfig", () => {
 
     expect(result.config.nested.shallow).toBe("default-shallow");
     expect(result.config.nested.deep.value).toBe("env-deep");
+    expect(result.missing).toEqual([]);
   });
 });
