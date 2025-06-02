@@ -151,6 +151,7 @@ export interface LoadConfigOptions<
     | ((config: TResult) => Array<PromptOptions> | Promise<PromptOptions>);
 }
 
+// NOSONAR - Generic type parameters are necessarily duplicated between interface and function for type safety
 export async function loadConfig<
   T extends Record<string, any> = Record<string, any>,
   TOverrides extends Record<string, any> = {
