@@ -11,7 +11,6 @@ import { hasTTY } from "std-env";
 import { applyEnv } from "./env";
 import { snakeCase } from "scule";
 import { klona } from "klona";
-import { expectTypeOf } from "vitest";
 
 const prompt = enquirer?.prompt;
 
@@ -101,7 +100,7 @@ async function search<T>(
   searchPlaces?: string[],
 ): Promise<ConfigLoaderResult<T> | null> {
   return getExplorer(moduleName, searchStrategy, searchPlaces).search(
-    searchFrom
+    searchFrom,
   ) as Promise<ConfigLoaderResult<T>>;
 }
 
@@ -129,11 +128,10 @@ export async function loadConfig<
   TRequired extends Array<Exclude<keyof T, number | symbol>> = Array<
     Exclude<keyof T, number | symbol>
   >,
-  TResult extends Record<string, any> =
-    TOverrides &
+  TResult extends Record<string, any> = TOverrides &
     TDefaultConfig & {
       [K in TRequired[number]]?: any;
-    } & T
+    } & T,
 >(options: {
   name: string;
   searchStrategy?: SearchStrategy;
