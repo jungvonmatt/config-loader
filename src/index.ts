@@ -11,6 +11,7 @@ import { hasTTY } from "std-env";
 import { applyEnv } from "./env";
 import { snakeCase } from "scule";
 import { klona } from "klona";
+import { expectTypeOf } from "vitest";
 
 const prompt = enquirer?.prompt;
 
@@ -100,7 +101,7 @@ async function search<T>(
   searchPlaces?: string[],
 ): Promise<ConfigLoaderResult<T> | null> {
   return getExplorer(moduleName, searchStrategy, searchPlaces).search(
-    searchFrom,
+    searchFrom
   ) as Promise<ConfigLoaderResult<T>>;
 }
 
@@ -117,7 +118,7 @@ async function load<T>(
   throw new Error(`Config file ${filename} not found`);
 }
 
-export interface LoadConfigOptions<
+export async function loadConfig<
   T extends Record<string, any> = Record<string, any>,
   TOverrides extends Record<string, any> = {
     [K in keyof T]: T[K];
@@ -128,12 +129,12 @@ export interface LoadConfigOptions<
   TRequired extends Array<Exclude<keyof T, number | symbol>> = Array<
     Exclude<keyof T, number | symbol>
   >,
-  TResult extends Record<string, any> = T &
+  TResult extends Record<string, any> =
     TOverrides &
     TDefaultConfig & {
       [K in TRequired[number]]?: any;
-    },
-> {
+    } & T
+>(options: {
   name: string;
   searchStrategy?: SearchStrategy;
   searchPlaces?: string[];
@@ -149,28 +150,7 @@ export interface LoadConfigOptions<
     | false
     | Array<PromptOptions>
     | ((config: TResult) => Array<PromptOptions> | Promise<PromptOptions>);
-}
-
-// NOSONAR - Generic type parameters are necessarily duplicated between interface and function for type safety
-export async function loadConfig<
-  T extends Record<string, any> = Record<string, any>,
-  TOverrides extends Record<string, any> = {
-    [K in keyof T]: T[K];
-  },
-  TDefaultConfig extends Record<string, any> = {
-    [K in keyof T]: T[K];
-  },
-  TRequired extends Array<Exclude<keyof T, number | symbol>> = Array<
-    Exclude<keyof T, number | symbol>
-  >,
-  TResult extends Record<string, any> = T &
-    TOverrides &
-    TDefaultConfig & {
-      [K in TRequired[number]]?: any;
-    },
->(
-  options: LoadConfigOptions<T, TOverrides, TDefaultConfig, TRequired, TResult>,
-): Promise<ConfigLoaderResult<TResult>> {
+}): Promise<ConfigLoaderResult<TResult>> {
   const envName = options?.envName ?? process.env.NODE_ENV;
   const cwd = resolve(process.cwd(), options?.cwd || ".");
   const dotenv = options?.dotenv ?? true;
@@ -276,3 +256,7 @@ export async function loadConfig<
 
   return { config, filepath, isEmpty, missing: [] };
 }
+
+export type LoadConfigOptions<T extends Record<string, any>> = Parameters<
+  typeof loadConfig<T>
+>[0];
