@@ -195,7 +195,13 @@ When `searchPlaces` is not specified, the following locations are searched (wher
 interface ConfigLoaderResult<T> {
   config: T; // The merged configuration object
   filepath: string; // Path to the config file that was loaded
-  isEmpty: boolean; // Whether the config file was empty
+  missing: string[]; // Array of missing required fields
+  layers: Array<{
+    type: "module" | "file" | "env" | "overrides" | "default" | "prompt";
+    filepath: string | undefined;
+    config: Partial<T> | undefined;
+    cwd: string | undefined;
+  }>; // Array of configuration layers in order of application
 }
 ```
 

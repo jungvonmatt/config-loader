@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { loadConfig } from "../src";
-import { resolve } from "pathe";
-import { writeFile, mkdir } from "node:fs/promises";
+import { resolve, relative } from "pathe";
+import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
 // Mock external dependencies
@@ -70,7 +70,6 @@ describe("Config Loading", () => {
       expect(result.config.database.port).toBe(5432);
       expect(result.config.api.timeout).toBe(30_000);
       expect(result.filepath).toBe(configPath);
-      expect(result.isEmpty).toBe(false);
     });
 
     it("loads configuration from .ts config file", async () => {
@@ -173,7 +172,6 @@ describe("Config Loading", () => {
       });
 
       expect(result.config.mode).toBe("global");
-      expect(result.isEmpty).toBe(false);
     });
 
     it("uses project search strategy when specified", async () => {
@@ -184,7 +182,6 @@ describe("Config Loading", () => {
       });
 
       expect(result.config.mode).toBe("project");
-      expect(result.isEmpty).toBe(false);
     });
 
     it("uses none search strategy when specified", async () => {
@@ -195,7 +192,6 @@ describe("Config Loading", () => {
       });
 
       expect(result.config.mode).toBe("none");
-      expect(result.isEmpty).toBe(false);
     });
   });
 
@@ -448,16 +444,26 @@ describe("Config Loading", () => {
     });
 
     it("handles empty configuration object", async () => {
-      const configPath = resolve(testDir, "empty.config.js");
+      const configPath = "test/temp/empty.config.js";
       await writeFile(configPath, `export default {};`);
+      try {
+        const result = await loadConfig({
+          name: "test",
+          configFile: configPath,
+        });
 
-      const result = await loadConfig({
-        name: "empty",
-        configFile: configPath,
-      });
-
-      expect(result.config).toEqual({});
-      expect(result.isEmpty).toBe(false);
+        expect(result.config).toEqual({});
+        if (result.filepath) {
+          expect(relative(process.cwd(), result.filepath)).toBe(
+            relative(process.cwd(), configPath),
+          );
+        } else {
+          expect(result.filepath).toBeUndefined();
+        }
+        expect(result.missing).toEqual([]);
+      } finally {
+        await unlink(configPath);
+      }
     });
 
     it("handles configuration with null and undefined values", async () => {

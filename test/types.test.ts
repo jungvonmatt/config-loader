@@ -387,10 +387,8 @@ describe("Type Safety and Inference", () => {
 
       // Test result structure
       expect(typeof result.config).toBe("object");
-      expect(typeof result.isEmpty).toBe("boolean");
-      expect(
-        result.filepath === undefined || typeof result.filepath === "string",
-      ).toBe(true);
+      expect(["string", "undefined"]).toContain(typeof result.filepath);
+      expect(Array.isArray(result.missing)).toBe(true);
 
       // Test config contents
       expect(result.config.app).toBe("test-app");

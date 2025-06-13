@@ -6,7 +6,7 @@ import { cosmiconfig } from "cosmiconfig";
 import { createDefu } from "defu";
 import destr from "destr";
 import { createJiti } from "jiti";
-import { resolve } from "pathe";
+import { resolve, relative } from "pathe";
 import { hasTTY } from "std-env";
 import { applyEnv } from "./env";
 import { snakeCase } from "scule";
@@ -117,6 +117,18 @@ async function load<T>(
   throw new Error(`Config file ${filename} not found`);
 }
 
+export type ResolvedConfig<T> = {
+  config: T;
+  filepath: string | undefined;
+  missing: string[];
+  layers: Array<{
+    type: "module" | "file" | "env" | "overrides" | "default" | "prompt";
+    filepath: string | undefined;
+    config: Partial<T> | undefined;
+    cwd: string | undefined;
+  }>;
+};
+
 export async function loadConfig<
   T extends Record<string, any> = Record<string, any>,
   TOverrides extends Record<string, any> = {
@@ -155,10 +167,17 @@ export async function loadConfig<
     | false
     | Array<PromptOptions>
     | ((config: TResult) => Array<PromptOptions> | Promise<PromptOptions>);
-}): Promise<ConfigLoaderResult<TResult>> {
+}): Promise<ResolvedConfig<TResult>> {
   const envName = options?.envName ?? process.env.NODE_ENV;
   const cwd = resolve(process.cwd(), options?.cwd || ".");
   const dotenv = options?.dotenv ?? true;
+
+  const result: ResolvedConfig<TResult> = {
+    config: {} as TResult,
+    filepath: undefined,
+    missing: [],
+    layers: [],
+  };
 
   // 1: module config
   const moduleConfig = await search<T>(
@@ -168,10 +187,46 @@ export async function loadConfig<
     options?.searchPlaces,
   );
 
+  if (!moduleConfig?.isEmpty) {
+    result.layers.push({
+      type: "module",
+      filepath: moduleConfig?.filepath,
+      config: moduleConfig?.config as TResult,
+      cwd,
+    });
+  }
+
   // 2: dedicated config file
   const extraConfig = options.configFile
     ? await load<T>(options.name, options.configFile)
     : ({} as ConfigLoaderResult<T>);
+
+  if (options.configFile) {
+    result.layers.push({
+      type: "file",
+      filepath: extraConfig?.filepath,
+      config: extraConfig?.config as TResult,
+      cwd: undefined,
+    });
+  }
+
+  if (options.defaultConfig) {
+    result.layers.push({
+      type: "default",
+      config: options.defaultConfig as TResult,
+      filepath: undefined,
+      cwd: undefined,
+    });
+  }
+
+  if (options.overrides) {
+    result.layers.push({
+      type: "overrides",
+      config: options.overrides as TResult,
+      filepath: undefined,
+      cwd: undefined,
+    });
+  }
 
   // 3: merge config
   const _config = defu(
@@ -183,8 +238,7 @@ export async function loadConfig<
   ) as T;
 
   // extraConfig filepath is preferred over moduleConfig filepath because it's more specific
-  const filepath = extraConfig?.filepath || moduleConfig?.filepath;
-  const isEmpty = Boolean(extraConfig?.isEmpty && moduleConfig?.isEmpty);
+  result.filepath = extraConfig?.filepath || moduleConfig?.filepath;
 
   // load environment config
   let envConfig: Partial<T> = {};
@@ -213,21 +267,22 @@ export async function loadConfig<
   }
 
   // 4: make sure overrides are preferred over envConfig
-  const config = defu({}, options.overrides, envConfig, _config) as TResult;
+  result.config = defu({}, options.overrides, envConfig, _config) as TResult;
 
   const required =
     typeof options.required === "function"
-      ? await options.required(config)
+      ? await options.required(result.config)
       : options.required;
   const prompt =
     typeof options.prompt === "function"
-      ? await options.prompt(config)
+      ? await options.prompt(result.config)
       : options.prompt;
 
   // 5: prompt for missing required fields
   if (Array.isArray(required) || Array.isArray(prompt)) {
-    const keys = Object.keys(config) as Array<keyof T>;
+    const keys = Object.keys(result.config) as Array<keyof T>;
     const missing = required?.filter((key) => !keys.includes(key)) ?? [];
+    result.missing = missing;
 
     if (missing.length > 0 || prompt?.length) {
       if (!hasTTY || options.prompts === false) {
@@ -240,7 +295,7 @@ export async function loadConfig<
 
       const prompts = Array.isArray(options.prompts)
         ? options.prompts
-        : ((await options?.prompts?.(config)) ?? undefined);
+        : ((await options?.prompts?.(result.config)) ?? undefined);
 
       const findPrompt = (name: string) => {
         const fallback: PromptOptions = {
@@ -269,16 +324,18 @@ export async function loadConfig<
       const missingPrompts = promptKeys.map((key) => findPrompt(key as string));
 
       const response = await promptFn<Partial<T>>(missingPrompts);
-      return {
-        config: defu({}, response, config) as TResult,
-        filepath,
-        isEmpty,
-        missing,
-      };
+      result.layers.push({
+        type: "prompt",
+        config: response as TResult,
+        filepath: undefined,
+        cwd: undefined,
+      });
+
+      result.config = defu({}, response, result.config) as TResult;
     }
   }
 
-  return { config, filepath, isEmpty, missing: [] };
+  return result;
 }
 
 export type LoadConfigOptions<T extends Record<string, any>> = Parameters<

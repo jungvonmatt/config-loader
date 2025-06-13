@@ -35,7 +35,6 @@ describe("loadConfig", () => {
     });
 
     expect(result.config).toEqual({ foo: "bar", nested: { value: 42 } });
-    expect(result.isEmpty).toBe(false);
     expect(result.missing).toEqual([]);
   });
 
@@ -167,6 +166,17 @@ describe("loadConfig", () => {
 
     expect(result.config.nested.shallow).toBe("default-shallow");
     expect(result.config.nested.deep.value).toBe("env-deep");
+    expect(result.missing).toEqual([]);
+  });
+
+  it("handles port configuration gracefully", async () => {
+    const result = await loadConfig({
+      name: "test",
+      defaultConfig: { port: 3000 },
+    });
+
+    expect(result.config).toEqual({ port: 3000 });
+    expect(result.filepath).toBe(undefined);
     expect(result.missing).toEqual([]);
   });
 });
