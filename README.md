@@ -158,21 +158,21 @@ For example, with `name: "myapp"`:
 
 #### Options
 
-| Option           | Type                                                  | Default                | Description                                                                                                                                                                                  |
-| ---------------- | ----------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`           | `string`                                              | **Required**           | Name of the configuration (used for file searching)                                                                                                                                          |
-| `searchStrategy` | `SearchStrategy`                                      | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                                                                                                   |
-| `searchPlaces`   | `string[]`                                            | See below              | Array of file paths/patterns to search for config files                                                                                                                                      |
-| `defaultConfig`  | `Partial<T>`                                          | `{}`                   | Default configuration values                                                                                                                                                                 |
-| `overrides`      | `Partial<T>`                                          | `{}`                   | Configuration overrides (highest priority)                                                                                                                                                   |
-| `required`       | `Array<keyof T>`                                      | `[]`                   | Array of required configuration keys                                                                                                                                                         |
-| `envMap`         | `Record<string, keyof T>`                             | `{}`                   | Map environment variable names to config keys                                                                                                                                                |
-| `dotenv`         | `boolean`                                             | `true`                 | Whether to load .env files                                                                                                                                                                   |
-| `envName`        | `string \| false`                                     | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                                                                                                     |
-| `cwd`            | `string`                                              | `process.cwd()`        | Working directory for file searching                                                                                                                                                         |
-| `configFile`     | `string`                                              | `undefined`            | Path to a specific config file to load                                                                                                                                                       |
-| `prompt`         | `Array<keyof T>`                                      | `[]`                   | Array of configuration keys to prompt for, even if they exist in the config. Keys will be sorted based on the order in `prompts` if provided.                                                |
-| `prompts`        | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details. The order of prompts determines the order of fields in the prompt sequence. |
+| Option           | Type                                                                           | Default                | Description                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`           | `string`                                                                       | **Required**           | Name of the configuration (used for file searching)                                                                                                                                          |
+| `searchStrategy` | `SearchStrategy`                                                               | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                                                                                                   |
+| `searchPlaces`   | `string[]`                                                                     | See below              | Array of file paths/patterns to search for config files                                                                                                                                      |
+| `defaultConfig`  | `Partial<T>`                                                                   | `{}`                   | Default configuration values                                                                                                                                                                 |
+| `overrides`      | `Partial<T>`                                                                   | `{}`                   | Configuration overrides (highest priority)                                                                                                                                                   |
+| `required`       | `Array<keyof T> \| ((config: T) => Array<keyof T> \| Promise<Array<keyof T>>)` | `[]`                   | Array of required configuration keys or a function that returns them. The function receives the current config as an argument.                                                               |
+| `envMap`         | `Record<string, keyof T>`                                                      | `{}`                   | Map environment variable names to config keys                                                                                                                                                |
+| `dotenv`         | `boolean`                                                                      | `true`                 | Whether to load .env files                                                                                                                                                                   |
+| `envName`        | `string \| false`                                                              | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                                                                                                     |
+| `cwd`            | `string`                                                                       | `process.cwd()`        | Working directory for file searching                                                                                                                                                         |
+| `configFile`     | `string`                                                                       | `undefined`            | Path to a specific config file to load                                                                                                                                                       |
+| `prompt`         | `Array<keyof T> \| ((config: T) => Array<keyof T> \| Promise<Array<keyof T>>)` | `[]`                   | Array of configuration keys to prompt for, even if they exist in the config. Can be a function that returns the keys. Keys will be sorted based on the order in `prompts` if provided.       |
+| `prompts`        | `PromptOptions[] \| ((config: T) => PromptOptions[])`                          | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details. The order of prompts determines the order of fields in the prompt sequence. |
 
 #### Default Search Places
 
@@ -249,6 +249,69 @@ In this example, the prompts will be shown in this order:
 2. Field 1 (from prompts array)
 3. Field 2 (from prompt/required array)
 4. Field 4 (from prompt/required array)
+
+#### Dynamic Required and Prompt Fields
+
+Both `required` and `prompt` options can be functions that dynamically determine which fields to require or prompt for. The functions receive the current configuration as an argument and can return either an array of keys or a Promise that resolves to an array of keys.
+
+Example:
+
+```typescript
+const { config } = await loadConfig({
+  name: "myapp",
+  defaultConfig: {
+    environment: "development",
+    features: ["auth", "api"],
+  },
+  required: (config) => {
+    // Make certain fields required based on environment
+    const required = ["apiKey"];
+    if (config.environment === "production") {
+      required.push("sslCert", "sslKey");
+    }
+    return required;
+  },
+  prompt: async (config) => {
+    // Dynamically determine which features need configuration
+    const features = config.features;
+    const prompts = [];
+
+    if (features.includes("auth")) {
+      prompts.push("authProvider", "authSecret");
+    }
+    if (features.includes("api")) {
+      prompts.push("apiEndpoint");
+    }
+
+    return prompts;
+  },
+  prompts: [
+    {
+      name: "authProvider",
+      type: "select",
+      message: "Select authentication provider:",
+      choices: ["google", "github", "custom"],
+    },
+    {
+      name: "authSecret",
+      type: "password",
+      message: "Enter authentication secret:",
+    },
+    {
+      name: "apiEndpoint",
+      type: "input",
+      message: "Enter API endpoint:",
+    },
+  ],
+});
+```
+
+In this example:
+
+1. The `required` function makes certain fields required based on the environment
+2. The `prompt` function determines which fields to prompt for based on enabled features
+3. The `prompts` array provides custom prompt configurations for each field
+4. All functions can be async and have access to the current configuration
 
 ## Examples
 

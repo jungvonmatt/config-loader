@@ -12,7 +12,7 @@ import { applyEnv } from "./env";
 import { snakeCase } from "scule";
 import { klona } from "klona";
 
-const prompt = enquirer?.prompt;
+const promptFn = enquirer?.prompt;
 
 const jiti = createJiti(import.meta.url);
 
@@ -29,7 +29,7 @@ const jitiLoader: Loader = async (filename: string) => {
 };
 
 export type PromptOptions = Exclude<
-  Parameters<typeof prompt>[0],
+  Parameters<typeof promptFn>[0],
   ((this: any) => any) | any[]
 >;
 
@@ -143,8 +143,14 @@ export async function loadConfig<
   configFile?: string;
   overrides?: Partial<TOverrides>;
   defaultConfig?: Partial<TDefaultConfig>;
-  required?: TKeys;
-  prompt?: TKeys;
+  required?:
+    | TKeys
+    | ((config: TResult) => TKeys)
+    | ((config: TResult) => Promise<TKeys>);
+  prompt?:
+    | TKeys
+    | ((config: TResult) => TKeys)
+    | ((config: TResult) => Promise<TKeys>);
   prompts?:
     | false
     | Array<PromptOptions>
@@ -209,13 +215,21 @@ export async function loadConfig<
   // 4: make sure overrides are preferred over envConfig
   const config = defu({}, options.overrides, envConfig, _config) as TResult;
 
-  // 5: prompt for missing required fields
-  if (Array.isArray(options?.required) || Array.isArray(options?.prompt)) {
-    const keys = Object.keys(config) as Array<keyof T>;
-    const missing =
-      options.required?.filter((key) => !keys.includes(key)) ?? [];
+  const required =
+    typeof options.required === "function"
+      ? await options.required(config)
+      : options.required;
+  const prompt =
+    typeof options.prompt === "function"
+      ? await options.prompt(config)
+      : options.prompt;
 
-    if (missing.length > 0 || options?.prompt?.length) {
+  // 5: prompt for missing required fields
+  if (Array.isArray(required) || Array.isArray(prompt)) {
+    const keys = Object.keys(config) as Array<keyof T>;
+    const missing = required?.filter((key) => !keys.includes(key)) ?? [];
+
+    if (missing.length > 0 || prompt?.length) {
       if (!hasTTY || options.prompts === false) {
         const missingKeys = missing.join(", ");
         throw new Error(
@@ -243,20 +257,18 @@ export async function loadConfig<
       };
 
       const promptKeys = Array.isArray(prompts)
-        ? [...new Set([...missing, ...(options?.prompt ?? [])])].sort(
-            (a, b) => {
-              const aIndex = prompts.findIndex((p) => p.name === a);
-              const bIndex = prompts.findIndex((p) => p.name === b);
-              if (aIndex === -1) return 1;
-              if (bIndex === -1) return -1;
-              return aIndex - bIndex;
-            },
-          )
-        : [...new Set([...missing, ...(options?.prompt ?? [])])];
+        ? [...new Set([...missing, ...(prompt || [])])].sort((a, b) => {
+            const aIndex = prompts.findIndex((p) => p.name === a);
+            const bIndex = prompts.findIndex((p) => p.name === b);
+            if (aIndex === -1) return 1;
+            if (bIndex === -1) return -1;
+            return aIndex - bIndex;
+          })
+        : [...new Set([...missing, ...(prompt || [])])];
 
       const missingPrompts = promptKeys.map((key) => findPrompt(key as string));
 
-      const response = await prompt<Partial<T>>(missingPrompts);
+      const response = await promptFn<Partial<T>>(missingPrompts);
       return {
         config: defu({}, response, config) as TResult,
         filepath,

@@ -955,4 +955,183 @@ describe("Configuration Prompts", () => {
       });
     });
   });
+
+  describe("Function-based Required and Prompt", () => {
+    it("handles function-based required option", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        dynamicField: "dynamic-value",
+      });
+
+      const requiredFn = vi.fn().mockResolvedValue(["dynamicField"]);
+
+      const result = await loadConfig({
+        name: "function-required",
+        defaultConfig: { staticField: "static-value" },
+        required: (_config) => requiredFn(_config),
+      });
+
+      expect(requiredFn).toHaveBeenCalledWith({
+        staticField: "static-value",
+      });
+
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "dynamicField",
+          type: "input",
+          message: 'Please specify value for "dynamicField"',
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        staticField: "static-value",
+        dynamicField: "dynamic-value",
+      });
+    });
+
+    it("handles function-based prompt option", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        dynamicPrompt: "prompted-value",
+      });
+
+      const promptFn = vi.fn().mockResolvedValue(["dynamicPrompt"]);
+
+      const result = await loadConfig({
+        name: "function-prompt",
+        defaultConfig: { staticField: "static-value" },
+        prompt: (_config) => promptFn(_config),
+      });
+
+      expect(promptFn).toHaveBeenCalledWith({
+        staticField: "static-value",
+      });
+
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "dynamicPrompt",
+          type: "input",
+          message: 'Please specify value for "dynamicPrompt"',
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        staticField: "static-value",
+        dynamicPrompt: "prompted-value",
+      });
+    });
+
+    it("handles async function-based required and prompt options", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        requiredField: "required-value",
+        promptField: "prompted-value",
+      });
+
+      const requiredFn = vi.fn().mockImplementation(async (_config) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return ["requiredField"];
+      });
+
+      const promptFn = vi.fn().mockImplementation(async (_config) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return ["promptField"];
+      });
+
+      const result = await loadConfig({
+        name: "async-functions",
+        defaultConfig: { staticField: "static-value" },
+        required: requiredFn,
+        prompt: promptFn,
+      });
+
+      expect(requiredFn).toHaveBeenCalledWith({
+        staticField: "static-value",
+      });
+
+      expect(promptFn).toHaveBeenCalledWith({
+        staticField: "static-value",
+      });
+
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "requiredField",
+          type: "input",
+          message: 'Please specify value for "requiredField"',
+        },
+        {
+          name: "promptField",
+          type: "input",
+          message: 'Please specify value for "promptField"',
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        staticField: "static-value",
+        requiredField: "required-value",
+        promptField: "prompted-value",
+      });
+    });
+
+    it("handles function-based required and prompt with custom prompts", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        requiredField: "required-value",
+        promptField: "prompted-value",
+      });
+
+      const requiredFn = vi.fn().mockResolvedValue(["requiredField"]);
+      const promptFn = vi.fn().mockResolvedValue(["promptField"]);
+
+      const result = await loadConfig({
+        name: "function-with-prompts",
+        defaultConfig: { staticField: "static-value" },
+        required: requiredFn,
+        prompt: promptFn,
+        prompts: [
+          {
+            name: "promptField",
+            type: "input",
+            message: "Custom prompt message:",
+          },
+          {
+            name: "requiredField",
+            type: "input",
+            message: "Custom required message:",
+          },
+        ],
+      });
+
+      expect(requiredFn).toHaveBeenCalledWith({
+        staticField: "static-value",
+      });
+
+      expect(promptFn).toHaveBeenCalledWith({
+        staticField: "static-value",
+      });
+
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "promptField",
+          type: "input",
+          message: "Custom prompt message:",
+        },
+        {
+          name: "requiredField",
+          type: "input",
+          message: "Custom required message:",
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        staticField: "static-value",
+        requiredField: "required-value",
+        promptField: "prompted-value",
+      });
+    });
+  });
 });
