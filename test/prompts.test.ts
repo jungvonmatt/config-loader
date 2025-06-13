@@ -794,4 +794,165 @@ describe("Configuration Prompts", () => {
       );
     });
   });
+
+  describe("Prompt Keys Sorting", () => {
+    it("sorts promptKeys based on prompts order when prompts are provided", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        field3: "value3",
+        field1: "value1",
+        field2: "value2",
+      });
+
+      const result = await loadConfig({
+        name: "sorted-prompts",
+        defaultConfig: {},
+        required: ["field1", "field2", "field3"],
+        prompts: [
+          {
+            name: "field3",
+            type: "input",
+            message: "Field 3:",
+          },
+          {
+            name: "field1",
+            type: "input",
+            message: "Field 1:",
+          },
+          {
+            name: "field2",
+            type: "input",
+            message: "Field 2:",
+          },
+        ],
+      });
+
+      // Verify that prompt was called with prompts in the correct order
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "field3",
+          type: "input",
+          message: "Field 3:",
+        },
+        {
+          name: "field1",
+          type: "input",
+          message: "Field 1:",
+        },
+        {
+          name: "field2",
+          type: "input",
+          message: "Field 2:",
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        field3: "value3",
+        field1: "value1",
+        field2: "value2",
+      });
+    });
+
+    it("maintains original order when no prompts are provided", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        field1: "value1",
+        field2: "value2",
+        field3: "value3",
+      });
+
+      const result = await loadConfig({
+        name: "unsorted-prompts",
+        defaultConfig: {},
+        required: ["field1", "field2", "field3"],
+      });
+
+      // Verify that prompt was called with prompts in the original order
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "field1",
+          type: "input",
+          message: 'Please specify value for "field1"',
+        },
+        {
+          name: "field2",
+          type: "input",
+          message: 'Please specify value for "field2"',
+        },
+        {
+          name: "field3",
+          type: "input",
+          message: 'Please specify value for "field3"',
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        field1: "value1",
+        field2: "value2",
+        field3: "value3",
+      });
+    });
+
+    it("sorts promptKeys based on prompts order and appends missing keys", async () => {
+      const enquirer = await import("enquirer");
+      const mockPrompt = vi.mocked(enquirer.default.prompt);
+      mockPrompt.mockResolvedValue({
+        field3: "value3",
+        field1: "value1",
+        field2: "value2",
+        field4: "value4",
+      });
+
+      const result = await loadConfig({
+        name: "mixed-prompts",
+        defaultConfig: {},
+        required: ["field1", "field2", "field3", "field4"],
+        prompts: [
+          {
+            name: "field3",
+            type: "input",
+            message: "Field 3:",
+          },
+          {
+            name: "field1",
+            type: "input",
+            message: "Field 1:",
+          },
+        ],
+      });
+
+      // Verify that prompt was called with prompts in the correct order
+      expect(mockPrompt).toHaveBeenCalledWith([
+        {
+          name: "field3",
+          type: "input",
+          message: "Field 3:",
+        },
+        {
+          name: "field1",
+          type: "input",
+          message: "Field 1:",
+        },
+        {
+          name: "field2",
+          type: "input",
+          message: 'Please specify value for "field2"',
+        },
+        {
+          name: "field4",
+          type: "input",
+          message: 'Please specify value for "field4"',
+        },
+      ]);
+
+      expect(result.config).toEqual({
+        field3: "value3",
+        field1: "value1",
+        field2: "value2",
+        field4: "value4",
+      });
+    });
+  });
 });

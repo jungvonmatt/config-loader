@@ -28,7 +28,7 @@ const jitiLoader: Loader = async (filename: string) => {
   return exported;
 };
 
-type PromptOptions = Exclude<
+export type PromptOptions = Exclude<
   Parameters<typeof prompt>[0],
   ((this: any) => any) | any[]
 >;
@@ -125,12 +125,12 @@ export async function loadConfig<
   TDefaultConfig extends Record<string, any> = {
     [K in keyof T]: T[K];
   },
-  TRequired extends Array<Exclude<keyof T, number | symbol>> = Array<
+  TKeys extends Array<Exclude<keyof T, number | symbol>> = Array<
     Exclude<keyof T, number | symbol>
   >,
   TResult extends Record<string, any> = TOverrides &
     TDefaultConfig & {
-      [K in TRequired[number]]?: any;
+      [K in TKeys[number]]?: any;
     } & T,
 >(options: {
   name: string;
@@ -143,7 +143,8 @@ export async function loadConfig<
   configFile?: string;
   overrides?: Partial<TOverrides>;
   defaultConfig?: Partial<TDefaultConfig>;
-  required?: TRequired;
+  required?: TKeys;
+  prompt?: TKeys;
   prompts?:
     | false
     | Array<PromptOptions>
@@ -209,11 +210,12 @@ export async function loadConfig<
   const config = defu({}, options.overrides, envConfig, _config) as TResult;
 
   // 5: prompt for missing required fields
-  if (options.required) {
+  if (Array.isArray(options?.required) || Array.isArray(options?.prompt)) {
     const keys = Object.keys(config) as Array<keyof T>;
-    const missing = options.required.filter((key) => !keys.includes(key));
+    const missing =
+      options.required?.filter((key) => !keys.includes(key)) ?? [];
 
-    if (missing.length > 0) {
+    if (missing.length > 0 || options?.prompt?.length) {
       if (!hasTTY || options.prompts === false) {
         const missingKeys = missing.join(", ");
         throw new Error(
@@ -240,7 +242,19 @@ export async function loadConfig<
         return fallback;
       };
 
-      const missingPrompts = missing.map((key) => findPrompt(key as string));
+      const promptKeys = Array.isArray(prompts)
+        ? [...new Set([...missing, ...(options?.prompt ?? [])])].sort(
+            (a, b) => {
+              const aIndex = prompts.findIndex((p) => p.name === a);
+              const bIndex = prompts.findIndex((p) => p.name === b);
+              if (aIndex === -1) return 1;
+              if (bIndex === -1) return -1;
+              return aIndex - bIndex;
+            },
+          )
+        : [...new Set([...missing, ...(options?.prompt ?? [])])];
+
+      const missingPrompts = promptKeys.map((key) => findPrompt(key as string));
 
       const response = await prompt<Partial<T>>(missingPrompts);
       return {
@@ -258,3 +272,5 @@ export async function loadConfig<
 export type LoadConfigOptions<T extends Record<string, any>> = Parameters<
   typeof loadConfig<T>
 >[0];
+
+export type { Prompt } from "enquirer";

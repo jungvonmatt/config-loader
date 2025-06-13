@@ -158,20 +158,21 @@ For example, with `name: "myapp"`:
 
 #### Options
 
-| Option           | Type                                                  | Default                | Description                                                                                                     |
-| ---------------- | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `name`           | `string`                                              | **Required**           | Name of the configuration (used for file searching)                                                             |
-| `searchStrategy` | `SearchStrategy`                                      | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                      |
-| `searchPlaces`   | `string[]`                                            | See below              | Array of file paths/patterns to search for config files                                                         |
-| `defaultConfig`  | `Partial<T>`                                          | `{}`                   | Default configuration values                                                                                    |
-| `overrides`      | `Partial<T>`                                          | `{}`                   | Configuration overrides (highest priority)                                                                      |
-| `required`       | `Array<keyof T>`                                      | `[]`                   | Array of required configuration keys                                                                            |
-| `envMap`         | `Record<string, keyof T>`                             | `{}`                   | Map environment variable names to config keys                                                                   |
-| `dotenv`         | `boolean`                                             | `true`                 | Whether to load .env files                                                                                      |
-| `envName`        | `string \| false`                                     | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                        |
-| `cwd`            | `string`                                              | `process.cwd()`        | Working directory for file searching                                                                            |
-| `configFile`     | `string`                                              | `undefined`            | Path to a specific config file to load                                                                          |
-| `prompts`        | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details |
+| Option           | Type                                                  | Default                | Description                                                                                                                                                                                  |
+| ---------------- | ----------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`           | `string`                                              | **Required**           | Name of the configuration (used for file searching)                                                                                                                                          |
+| `searchStrategy` | `SearchStrategy`                                      | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                                                                                                   |
+| `searchPlaces`   | `string[]`                                            | See below              | Array of file paths/patterns to search for config files                                                                                                                                      |
+| `defaultConfig`  | `Partial<T>`                                          | `{}`                   | Default configuration values                                                                                                                                                                 |
+| `overrides`      | `Partial<T>`                                          | `{}`                   | Configuration overrides (highest priority)                                                                                                                                                   |
+| `required`       | `Array<keyof T>`                                      | `[]`                   | Array of required configuration keys                                                                                                                                                         |
+| `envMap`         | `Record<string, keyof T>`                             | `{}`                   | Map environment variable names to config keys                                                                                                                                                |
+| `dotenv`         | `boolean`                                             | `true`                 | Whether to load .env files                                                                                                                                                                   |
+| `envName`        | `string \| false`                                     | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                                                                                                     |
+| `cwd`            | `string`                                              | `process.cwd()`        | Working directory for file searching                                                                                                                                                         |
+| `configFile`     | `string`                                              | `undefined`            | Path to a specific config file to load                                                                                                                                                       |
+| `prompt`         | `Array<keyof T>`                                      | `[]`                   | Array of configuration keys to prompt for, even if they exist in the config. Keys will be sorted based on the order in `prompts` if provided.                                                |
+| `prompts`        | `PromptOptions[] \| ((config: T) => PromptOptions[])` | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details. The order of prompts determines the order of fields in the prompt sequence. |
 
 #### Default Search Places
 
@@ -212,6 +213,42 @@ interface PromptOptions {
   // ... other enquirer options
 }
 ```
+
+#### Prompt Ordering
+
+When using both `prompt` and `prompts` options, the order of fields in the prompt sequence is determined by:
+
+1. The order of fields in the `prompts` array (if provided)
+2. Any remaining fields from `prompt` or `required` will be appended in their original order
+
+Example:
+
+```typescript
+const { config } = await loadConfig({
+  name: "myapp",
+  required: ["field1", "field2", "field3", "field4"],
+  prompt: ["field1", "field2", "field3", "field4"],
+  prompts: [
+    {
+      name: "field3",
+      type: "input",
+      message: "Field 3:",
+    },
+    {
+      name: "field1",
+      type: "input",
+      message: "Field 1:",
+    },
+  ],
+});
+```
+
+In this example, the prompts will be shown in this order:
+
+1. Field 3 (from prompts array)
+2. Field 1 (from prompts array)
+3. Field 2 (from prompt/required array)
+4. Field 4 (from prompt/required array)
 
 ## Examples
 
