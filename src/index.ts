@@ -6,7 +6,7 @@ import { cosmiconfig } from "cosmiconfig";
 import { createDefu } from "defu";
 import destr from "destr";
 import { createJiti } from "jiti";
-import { resolve, relative } from "pathe";
+import { resolve } from "pathe";
 import { hasTTY } from "std-env";
 import { applyEnv } from "./env";
 import { snakeCase } from "scule";
@@ -187,28 +187,10 @@ export async function loadConfig<
     options?.searchPlaces,
   );
 
-  if (!moduleConfig?.isEmpty) {
-    result.layers.push({
-      type: "module",
-      filepath: moduleConfig?.filepath,
-      config: moduleConfig?.config as TResult,
-      cwd,
-    });
-  }
-
   // 2: dedicated config file
   const extraConfig = options.configFile
     ? await load<T>(options.name, options.configFile)
     : ({} as ConfigLoaderResult<T>);
-
-  if (options.configFile) {
-    result.layers.push({
-      type: "file",
-      filepath: extraConfig?.filepath,
-      config: extraConfig?.config as TResult,
-      cwd: undefined,
-    });
-  }
 
   if (options.defaultConfig) {
     result.layers.push({
@@ -219,11 +201,20 @@ export async function loadConfig<
     });
   }
 
-  if (options.overrides) {
+  if (!moduleConfig?.isEmpty) {
     result.layers.push({
-      type: "overrides",
-      config: options.overrides as TResult,
-      filepath: undefined,
+      type: "module",
+      filepath: moduleConfig?.filepath,
+      config: moduleConfig?.config as TResult,
+      cwd,
+    });
+  }
+
+  if (options.configFile) {
+    result.layers.push({
+      type: "file",
+      filepath: extraConfig?.filepath,
+      config: extraConfig?.config as TResult,
       cwd: undefined,
     });
   }
@@ -264,6 +255,22 @@ export async function loadConfig<
         envConfig[key] = value as T[keyof T];
       }
     }
+
+    result.layers.push({
+      type: "env",
+      config: envConfig as TResult,
+      filepath: undefined,
+      cwd: undefined,
+    });
+  }
+
+  if (options.overrides) {
+    result.layers.push({
+      type: "overrides",
+      config: options.overrides as TResult,
+      filepath: undefined,
+      cwd: undefined,
+    });
   }
 
   // 4: make sure overrides are preferred over envConfig
