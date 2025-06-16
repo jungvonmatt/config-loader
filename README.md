@@ -7,7 +7,7 @@
 
 > Load configuration from files, environment variables, and interactively prompt for missing values
 
-A flexible configuration loader that combines multiple configuration sources with interactive prompts for missing required values. Inspired by [c12](https://github.com/unjs/c12), built on top of [cosmiconfig](https://github.com/cosmiconfig/cosmiconfig) and [jiti](https://github.com/unjs/jiti) with additional features for environment variable mapping and user prompts.
+A flexible configuration loader that extends [c12](https://github.com/unjs/c12) with additional features for environment variable mapping and interactive user prompts. Built on top of the unjs ecosystem for modern Node.js applications.
 
 ## Features
 
@@ -17,6 +17,7 @@ A flexible configuration loader that combines multiple configuration sources wit
 - 🔄 **Config merging**: Smart merging of configuration from multiple sources with overrides
 - 📁 **Flexible file formats**: Support for JSON, YAML, JS, TS, and more
 - 🛡️ **TypeScript support**: Full TypeScript support with type safety
+- 🔗 **Config extension**: Built-in support for extending configurations from other files or remote sources
 
 ## Installation
 
@@ -92,12 +93,33 @@ const { config } = await loadConfig({
 });
 ```
 
+### Extending Configurations
+
+```js
+// config.ts
+export default {
+  extends: "./base.config.ts",
+  port: 8080,
+  database: {
+    url: "postgresql://localhost/mydb"
+  }
+};
+
+// base.config.ts
+export default {
+  port: 3000,
+  host: "localhost",
+  database: {
+    url: "postgresql://localhost/default"
+  }
+};
+```
+
 ## Configuration Files
 
 The loader searches for configuration in the following locations (in order):
 
 - `package.json` (in a `myapp` property)
-- `.myapprc`
 - `.myapprc.json`
 - `.myapprc.yaml` / `.myapprc.yml`
 - `.myapprc.js` / `.myapprc.ts` / `.myapprc.mjs` / `.myapprc.cjs`
@@ -154,47 +176,30 @@ For example, with `name: "myapp"`:
 
 ## API
 
-### `loadConfig<T>(options: LoadConfigOptions<T>): Promise<CosmiconfigResult<T>>`
+### `loadConfig<T>(options: LoadConfigOptions<T>): Promise<ResolvedConfig<T>>`
 
 #### Options
 
-| Option           | Type                                                                           | Default                | Description                                                                                                                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`           | `string`                                                                       | **Required**           | Name of the configuration (used for file searching)                                                                                                                                          |
-| `searchStrategy` | `SearchStrategy`                                                               | `"global"`             | Search strategy for finding config files. Can be `"global"` or `"project"`                                                                                                                   |
-| `searchPlaces`   | `string[]`                                                                     | See below              | Array of file paths/patterns to search for config files                                                                                                                                      |
-| `defaultConfig`  | `Partial<T>`                                                                   | `{}`                   | Default configuration values                                                                                                                                                                 |
-| `overrides`      | `Partial<T>`                                                                   | `{}`                   | Configuration overrides (highest priority)                                                                                                                                                   |
-| `required`       | `Array<keyof T> \| ((config: T) => Array<keyof T> \| Promise<Array<keyof T>>)` | `[]`                   | Array of required configuration keys or a function that returns them. The function receives the current config as an argument.                                                               |
-| `envMap`         | `Record<string, keyof T>`                                                      | `{}`                   | Map environment variable names to config keys                                                                                                                                                |
-| `dotenv`         | `boolean`                                                                      | `true`                 | Whether to load .env files                                                                                                                                                                   |
-| `envName`        | `string \| false`                                                              | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                                                                                                     |
-| `cwd`            | `string`                                                                       | `process.cwd()`        | Working directory for file searching                                                                                                                                                         |
-| `configFile`     | `string`                                                                       | `undefined`            | Path to a specific config file to load                                                                                                                                                       |
-| `prompt`         | `Array<keyof T> \| ((config: T) => Array<keyof T> \| Promise<Array<keyof T>>)` | `[]`                   | Array of configuration keys to prompt for, even if they exist in the config. Can be a function that returns the keys. Keys will be sorted based on the order in `prompts` if provided.       |
-| `prompts`        | `PromptOptions[] \| ((config: T) => PromptOptions[])`                          | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details. The order of prompts determines the order of fields in the prompt sequence. |
-
-#### Default Search Places
-
-When `searchPlaces` is not specified, the following locations are searched (where `{name}` is your config name):
-
-- `package.json`
-- `.{name}rc`
-- `.{name}rc.json`
-- `.{name}rc.yaml` / `.{name}rc.yml`
-- `.{name}rc.js` / `.{name}rc.ts` / `.{name}rc.mjs` / `.{name}rc.cjs`
-- `.config/.{name}rc`
-- `.config/.{name}rc.json`
-- `.config/.{name}rc.yaml` / `.config/.{name}rc.yml`
-- `.config/.{name}rc.js` / `.config/.{name}rc.ts` / `.config/.{name}rc.mjs` / `.config/.{name}rc.cjs`
-- `{name}.config.js` / `{name}.config.ts` / `{name}.config.mjs` / `{name}.config.cjs`
+| Option          | Type                                                                           | Default                | Description                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`          | `string`                                                                       | **Required**           | Name of the configuration (used for file searching)                                                                                                                                          |
+| `defaultConfig` | `Partial<T>`                                                                   | `{}`                   | Default configuration values                                                                                                                                                                 |
+| `overrides`     | `Partial<T>`                                                                   | `{}`                   | Configuration overrides (highest priority)                                                                                                                                                   |
+| `required`      | `Array<keyof T> \| ((config: T) => Array<keyof T> \| Promise<Array<keyof T>>)` | `[]`                   | Array of required configuration keys or a function that returns them. The function receives the current config as an argument.                                                               |
+| `envMap`        | `Record<string, keyof T>`                                                      | `{}`                   | Map environment variable names to config keys                                                                                                                                                |
+| `dotenv`        | `boolean`                                                                      | `true`                 | Whether to load .env files                                                                                                                                                                   |
+| `envName`       | `string \| false`                                                              | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                                                                                                     |
+| `cwd`           | `string`                                                                       | `process.cwd()`        | Working directory for file searching                                                                                                                                                         |
+| `configFile`    | `string`                                                                       | `undefined`            | Path to a specific config file to load                                                                                                                                                       |
+| `prompt`        | `Array<keyof T> \| ((config: T) => Array<keyof T> \| Promise<Array<keyof T>>)` | `[]`                   | Array of configuration keys to prompt for, even if they exist in the config. Can be a function that returns the keys. Keys will be sorted based on the order in `prompts` if provided.       |
+| `prompts`       | `PromptOptions[] \| ((config: T) => PromptOptions[])`                          | `[]`                   | Interactive prompts for missing values. See [enquirer](https://github.com/enquirer/enquirer) for syntax details. The order of prompts determines the order of fields in the prompt sequence. |
 
 #### Returns
 
 ```typescript
-interface ConfigLoaderResult<T> {
+interface ResolvedConfig<T> {
   config: T; // The merged configuration object
-  filepath: string; // Path to the config file that was loaded
+  filepath: string | undefined; // Path to the config file that was loaded
   missing: string[]; // Array of missing required fields
   layers: Array<{
     type: "module" | "file" | "env" | "overrides" | "default" | "prompt";
@@ -219,179 +224,6 @@ interface PromptOptions {
   // ... other enquirer options
 }
 ```
-
-#### Prompt Ordering
-
-When using both `prompt` and `prompts` options, the order of fields in the prompt sequence is determined by:
-
-1. The order of fields in the `prompts` array (if provided)
-2. Any remaining fields from `prompt` or `required` will be appended in their original order
-
-Example:
-
-```typescript
-const { config } = await loadConfig({
-  name: "myapp",
-  required: ["field1", "field2", "field3", "field4"],
-  prompt: ["field1", "field2", "field3", "field4"],
-  prompts: [
-    {
-      name: "field3",
-      type: "input",
-      message: "Field 3:",
-    },
-    {
-      name: "field1",
-      type: "input",
-      message: "Field 1:",
-    },
-  ],
-});
-```
-
-In this example, the prompts will be shown in this order:
-
-1. Field 3 (from prompts array)
-2. Field 1 (from prompts array)
-3. Field 2 (from prompt/required array)
-4. Field 4 (from prompt/required array)
-
-#### Dynamic Required and Prompt Fields
-
-Both `required` and `prompt` options can be functions that dynamically determine which fields to require or prompt for. The functions receive the current configuration as an argument and can return either an array of keys or a Promise that resolves to an array of keys.
-
-Example:
-
-```typescript
-const { config } = await loadConfig({
-  name: "myapp",
-  defaultConfig: {
-    environment: "development",
-    features: ["auth", "api"],
-  },
-  required: (config) => {
-    // Make certain fields required based on environment
-    const required = ["apiKey"];
-    if (config.environment === "production") {
-      required.push("sslCert", "sslKey");
-    }
-    return required;
-  },
-  prompt: async (config) => {
-    // Dynamically determine which features need configuration
-    const features = config.features;
-    const prompts = [];
-
-    if (features.includes("auth")) {
-      prompts.push("authProvider", "authSecret");
-    }
-    if (features.includes("api")) {
-      prompts.push("apiEndpoint");
-    }
-
-    return prompts;
-  },
-  prompts: [
-    {
-      name: "authProvider",
-      type: "select",
-      message: "Select authentication provider:",
-      choices: ["google", "github", "custom"],
-    },
-    {
-      name: "authSecret",
-      type: "password",
-      message: "Enter authentication secret:",
-    },
-    {
-      name: "apiEndpoint",
-      type: "input",
-      message: "Enter API endpoint:",
-    },
-  ],
-});
-```
-
-In this example:
-
-1. The `required` function makes certain fields required based on the environment
-2. The `prompt` function determines which fields to prompt for based on enabled features
-3. The `prompts` array provides custom prompt configurations for each field
-4. All functions can be async and have access to the current configuration
-
-## Examples
-
-### Complete Application Setup
-
-```js
-import { loadConfig } from '@jungvonmatt/config-loader'
-
-interface AppConfig {
-  port: number
-  host: string
-  database: {
-    url: string
-    pool: number
-  }
-  apiKey: string
-  features: string[]
-}
-
-const { config } = await loadConfig<AppConfig>({
-  name: 'myapp',
-
-  // Default values
-  defaultConfig: {
-    port: 3000,
-    host: 'localhost',
-    database: {
-      pool: 10
-    },
-    features: []
-  },
-
-  // Required fields that must be provided
-  required: ['databaseUrl', 'apiKey'],
-
-  // Map environment variables
-  envMap: {
-    'DATABASE_URL': 'databaseUrl',
-    'API_KEY': 'apiKey',
-    'PORT': 'port'
-  },
-
-  // Interactive prompts for missing required values
-  prompts: [
-    {
-      name: 'databaseUrl',
-      type: 'input',
-      message: 'Database connection URL:',
-      initial: 'postgresql://localhost:5432/myapp'
-    },
-    {
-      name: 'apiKey',
-      type: 'password',
-      message: 'API Key:'
-    }
-  ]
-})
-
-console.log(`Starting server on ${config.host}:${config.port}`)
-```
-
-## Development
-
-<details>
-
-<summary>Local development</summary>
-
-- Clone this repository
-- Install latest LTS version of [Node.js](https://nodejs.org/en/)
-- Enable [Corepack](https://github.com/nodejs/corepack) using `corepack enable`
-- Install dependencies using `pnpm install`
-- Run interactive tests using `pnpm dev`
-
-</details>
 
 ## License
 

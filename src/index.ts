@@ -1,12 +1,11 @@
-import type { Loader, LoaderResult, SearchStrategy } from "cosmiconfig";
 import process from "node:process";
 import enquirer from "enquirer";
 import fs from "node:fs";
-import { cosmiconfig } from "cosmiconfig";
+import { loadConfig as c12LoadConfig, type ResolvableConfig } from "c12";
+import { findUp } from "find-up";
 import { createDefu } from "defu";
 import destr from "destr";
-import { createJiti } from "jiti";
-import { resolve } from "pathe";
+import { extname, resolve, dirname } from "pathe";
 import { hasTTY } from "std-env";
 import { applyEnv } from "./env";
 import { snakeCase } from "scule";
@@ -14,35 +13,10 @@ import { klona } from "klona";
 
 const promptFn = enquirer?.prompt;
 
-const jiti = createJiti(import.meta.url);
-
-const jitiLoader: Loader = async (filename: string) => {
-  const mod = await jiti.import<LoaderResult>(filename);
-  const exported = mod?.default ?? mod;
-
-  // If the exported value is a function, call it to get the config
-  if (typeof exported === "function") {
-    return exported();
-  }
-
-  return exported;
-};
-
 export type PromptOptions = Exclude<
   Parameters<typeof promptFn>[0],
   ((this: any) => any) | any[]
 >;
-
-type Explorer = ReturnType<typeof cosmiconfig>;
-type ConfigLoaderResult<T = LoaderResult> = Omit<
-  Exclude<Awaited<ReturnType<Explorer["search"]>>, null>,
-  "config" | "isEmpty" | "filepath"
-> & {
-  config: T;
-  isEmpty: boolean;
-  filepath: string | undefined;
-  missing: string[];
-};
 
 // Create custom defu that replaces arrays instead of concatenating them
 const defu = createDefu((obj, key, value) => {
@@ -54,67 +28,26 @@ const defu = createDefu((obj, key, value) => {
   return false;
 });
 
-function getExplorer(
-  moduleName: string,
-  searchStrategy?: SearchStrategy,
-  searchPlaces?: string[],
-): Explorer {
-  return cosmiconfig(moduleName, {
-    searchStrategy: searchStrategy || "global",
-    searchPlaces: searchPlaces || [
-      "package.json",
-      `.${moduleName}rc`,
-      `.${moduleName}rc.json`,
-      `.${moduleName}rc.yaml`,
-      `.${moduleName}rc.yml`,
-      `.${moduleName}rc.js`,
-      `.${moduleName}rc.ts`,
-      `.${moduleName}rc.mjs`,
-      `.${moduleName}rc.cjs`,
-      `.config/${moduleName}rc`,
-      `.config/${moduleName}rc.json`,
-      `.config/${moduleName}rc.yaml`,
-      `.config/${moduleName}rc.yml`,
-      `.config/${moduleName}rc.js`,
-      `.config/${moduleName}rc.ts`,
-      `.config/${moduleName}rc.mjs`,
-      `.config/${moduleName}rc.cjs`,
-      `${moduleName}.config.js`,
-      `${moduleName}.config.ts`,
-      `${moduleName}.config.mjs`,
-      `${moduleName}.config.cjs`,
-    ],
-    loaders: {
-      ".ts": jitiLoader,
-      ".js": jitiLoader,
-      ".cjs": jitiLoader,
-      ".mjs": jitiLoader,
-    },
-  });
-}
-
-async function search<T>(
-  moduleName: string,
-  searchFrom?: string,
-  searchStrategy: SearchStrategy = "global",
-  searchPlaces?: string[],
-): Promise<ConfigLoaderResult<T> | null> {
-  return getExplorer(moduleName, searchStrategy, searchPlaces).search(
-    searchFrom,
-  ) as Promise<ConfigLoaderResult<T>>;
-}
-
-async function load<T>(
-  moduleName: string,
-  filename: string,
-): Promise<ConfigLoaderResult<T> | null> {
-  if (fs.existsSync(filename)) {
-    return getExplorer(moduleName).load(filename) as Promise<
-      ConfigLoaderResult<T>
-    >;
+export function load<T extends Record<string, any> = Record<string, any>>(
+  options: { name?: string; filename?: string; cwd?: string } = {},
+) {
+  const name = options?.name;
+  const filename = options?.filename;
+  if (filename && !fs.existsSync(filename)) {
+    throw new Error(`Config file ${filename} not found`);
   }
+  const configFile = filename?.replace(extname(filename), "");
+  const cwd = dirname(
+    resolve(options?.cwd || process.cwd(), filename || "config.json"),
+  );
 
-  throw new Error(`Config file ${filename} not found`);
+  return c12LoadConfig<T>({
+    name,
+    configFile,
+    cwd,
+    dotenv: false,
+    rcFile: false,
+  });
 }
 
 export type ResolvedConfig<T> = {
@@ -146,8 +79,6 @@ export async function loadConfig<
     } & T,
 >(options: {
   name: string;
-  searchStrategy?: SearchStrategy;
-  searchPlaces?: string[];
   envMap?: Record<string, keyof T>;
   dotenv?: boolean;
   envName?: string | false;
@@ -168,6 +99,7 @@ export async function loadConfig<
     | Array<PromptOptions>
     | ((config: TResult) => Array<PromptOptions> | Promise<PromptOptions>);
 }): Promise<ResolvedConfig<TResult>> {
+  const name = options?.name;
   const envName = options?.envName ?? process.env.NODE_ENV;
   const cwd = resolve(process.cwd(), options?.cwd || ".");
   const dotenv = options?.dotenv ?? true;
@@ -179,45 +111,63 @@ export async function loadConfig<
     layers: [],
   };
 
+  const rcFiles = [
+    `.${name}rc.json`,
+    `.${name}rc.yaml`,
+    `.${name}rc.yml`,
+    `.${name}rc.js`,
+    `.${name}rc.mjs`,
+    `.${name}rc.cjs`,
+    `.${name}rc.ts`,
+    `.${name}rc.mts`,
+    `.${name}rc.cts`,
+  ];
+
+  const hasRcFilename = await findUp(rcFiles, { cwd });
+
   // 1: module config
-  const moduleConfig = await search<T>(
-    options.name,
+  const moduleConfig = await c12LoadConfig<T>({
+    name: options.name,
     cwd,
-    options?.searchStrategy,
-    options?.searchPlaces,
-  );
+    configFile: hasRcFilename ? `.${name}rc` : undefined,
+    dotenv: false,
+    globalRc: true,
+    defaultConfig: options.defaultConfig as ResolvableConfig<T>,
+    overrides: options.overrides as ResolvableConfig<T>,
+    merger: defu as any,
+  });
 
   // 2: dedicated config file
   const extraConfig = options.configFile
-    ? await load<T>(options.name, options.configFile)
-    : ({} as ConfigLoaderResult<T>);
+    ? await load<T>({ name: options.name, filename: options.configFile, cwd })
+    : ({} as Awaited<ReturnType<typeof load<T>>>);
 
-  if (options.defaultConfig) {
-    result.layers.push({
-      type: "default",
-      config: options.defaultConfig as TResult,
-      filepath: undefined,
-      cwd: undefined,
-    });
-  }
+  // if (options.defaultConfig) {
+  //   result.layers.push({
+  //     type: "default",
+  //     config: options.defaultConfig as TResult,
+  //     filepath: undefined,
+  //     cwd: undefined,
+  //   });
+  // }
 
-  if (!moduleConfig?.isEmpty) {
-    result.layers.push({
-      type: "module",
-      filepath: moduleConfig?.filepath,
-      config: moduleConfig?.config as TResult,
-      cwd,
-    });
-  }
+  // if (!moduleConfig?.isEmpty) {
+  //   result.layers.push({
+  //     type: "module",
+  //     filepath: moduleConfig?.filepath,
+  //     config: moduleConfig?.config as TResult,
+  //     cwd,
+  //   });
+  // }
 
-  if (options.configFile) {
-    result.layers.push({
-      type: "file",
-      filepath: extraConfig?.filepath,
-      config: extraConfig?.config as TResult,
-      cwd: undefined,
-    });
-  }
+  // if (options.configFile) {
+  //   result.layers.push({
+  //     type: "file",
+  //     filepath: extraConfig?.filepath,
+  //     config: extraConfig?.config as TResult,
+  //     cwd: undefined,
+  //   });
+  // }
 
   // 3: merge config
   const _config = defu(
@@ -229,7 +179,7 @@ export async function loadConfig<
   ) as T;
 
   // extraConfig filepath is preferred over moduleConfig filepath because it's more specific
-  result.filepath = extraConfig?.filepath || moduleConfig?.filepath;
+  result.filepath = extraConfig?.configFile || moduleConfig?.configFile;
 
   // load environment config
   let envConfig: Partial<T> = {};

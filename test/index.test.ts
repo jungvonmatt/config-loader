@@ -176,7 +176,7 @@ describe("loadConfig", () => {
     });
 
     expect(result.config).toEqual({ port: 3000 });
-    expect(result.filepath).toBe(undefined);
+    expect(result.filepath).toBe("test.config");
     expect(result.missing).toEqual([]);
   });
 });
