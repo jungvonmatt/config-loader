@@ -100,7 +100,6 @@ type BaseLoadConfigOptions<T extends UserInputConfig> = Omit<
   | "overrides"
   | "dotenv"
   | "rcFile"
-  | "globalRc"
 >;
 
 export async function loadConfig<
@@ -156,26 +155,13 @@ export async function loadConfig<
     layers: [],
   };
 
-  const rcFiles = [
-    `.${name}rc.json`,
-    `.${name}rc.yaml`,
-    `.${name}rc.yml`,
-    `.${name}rc.js`,
-    `.${name}rc.mjs`,
-    `.${name}rc.cjs`,
-    `.${name}rc.ts`,
-    `.${name}rc.mts`,
-    `.${name}rc.cts`,
-  ];
-
-  const hasRcFilename = await findUp(rcFiles, { cwd });
-
   // 1: module config
   const moduleConfig = await c12LoadConfig<TResult>({
     ...options,
     name: options.name,
+    // we load the extra config file later, so we want the module config to be the first layer
+    configFile: undefined,
     cwd,
-    configFile: hasRcFilename ? `.${name}rc` : undefined,
     dotenv: false,
     envName,
     packageJson: true,
@@ -201,12 +187,40 @@ export async function loadConfig<
     result.layers.push(...layersWithType(extraConfig.layers, "file"));
   }
 
-  // 3: merge config
+  // 3: check global rc files with extension
+  const rcFiles = [
+    `.${name}rc.json`,
+    `.${name}rc.yaml`,
+    `.${name}rc.yml`,
+    `.${name}rc.js`,
+    `.${name}rc.mjs`,
+    `.${name}rc.cjs`,
+    `.${name}rc.ts`,
+    `.${name}rc.mts`,
+    `.${name}rc.cts`,
+  ];
+
+  const rcFilename = await findUp(rcFiles, { cwd });
+  let globalRcConfig = {} as Awaited<ReturnType<typeof load<TResult>>>;
+  if (rcFilename) {
+    const isLocalRc = rcFilename.startsWith(cwd);
+
+    if (isLocalRc || options.globalRc) {
+      globalRcConfig = await load<TResult>({
+        name: options.name,
+        filename: rcFilename,
+        cwd,
+      });
+    }
+  }
+
+  // 4: merge config
   const _config = defu(
     {},
     options.overrides,
     extraConfig?.config ?? {},
     moduleConfig?.config ?? {},
+    globalRcConfig?.config ?? {},
     options.defaultConfig,
   ) as TResult;
 

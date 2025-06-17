@@ -316,6 +316,32 @@ describe("Config Loading", () => {
       expect(result.config.level1.level2.level3.value2).toBe("default");
       expect(result.config.level1.level2.level3.value3).toBe("default");
     });
+
+    it("loads config from global rc file with matching name", async () => {
+      // Create a global RC file in the parent of testDir
+      const parentDir = resolve(testDir, "..");
+      const globalRcPath = resolve(parentDir, ".mergerrc.json");
+      await writeFile(
+        globalRcPath,
+        JSON.stringify({
+          globalValue: 123,
+          database: { host: "global-host", port: 9999 },
+        }),
+      );
+
+      const result = await loadConfig({
+        name: "merger",
+        cwd: testDir,
+        globalRc: true,
+      });
+
+      expect(result.config.globalValue).toBe(123);
+      expect(result.config.database.host).toBe("global-host");
+      expect(result.config.database.port).toBe(9999);
+
+      // Cleanup
+      await unlink(globalRcPath);
+    });
   });
 
   describe("Environment Variable Integration", () => {
