@@ -43,7 +43,6 @@
   "dependencies": {
     "@dotenvx/dotenvx": "^1.44.2",
     "c12": "^3.0.4",
-    "confbox": "^0.2.2",
     "defu": "^6.1.4",
     "destr": "^2.0.5",
     "enquirer": "^2.4.1",
