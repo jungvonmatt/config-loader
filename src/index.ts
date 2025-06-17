@@ -1,12 +1,20 @@
-import type { Loader, LoaderResult, SearchStrategy } from "cosmiconfig";
 import process from "node:process";
 import enquirer from "enquirer";
+import type { Simplify } from "type-fest";
 import fs from "node:fs";
-import { cosmiconfig } from "cosmiconfig";
+import {
+  loadConfig as c12LoadConfig,
+  type ResolvableConfig,
+  type ConfigLayer,
+  type ResolvedConfig as C12ResolvedConfig,
+  type UserInputConfig,
+  type ConfigLayerMeta as C12ConfigLayerMeta,
+  type LoadConfigOptions as C12LoadConfigOptions,
+} from "c12";
+import { findUp } from "find-up";
 import { createDefu } from "defu";
 import destr from "destr";
-import { createJiti } from "jiti";
-import { resolve } from "pathe";
+import { extname, resolve, dirname } from "pathe";
 import { hasTTY } from "std-env";
 import { applyEnv } from "./env";
 import { snakeCase } from "scule";
@@ -14,35 +22,10 @@ import { klona } from "klona";
 
 const promptFn = enquirer?.prompt;
 
-const jiti = createJiti(import.meta.url);
-
-const jitiLoader: Loader = async (filename: string) => {
-  const mod = await jiti.import<LoaderResult>(filename);
-  const exported = mod?.default ?? mod;
-
-  // If the exported value is a function, call it to get the config
-  if (typeof exported === "function") {
-    return exported();
-  }
-
-  return exported;
-};
-
 export type PromptOptions = Exclude<
   Parameters<typeof promptFn>[0],
   ((this: any) => any) | any[]
 >;
-
-type Explorer = ReturnType<typeof cosmiconfig>;
-type ConfigLoaderResult<T = LoaderResult> = Omit<
-  Exclude<Awaited<ReturnType<Explorer["search"]>>, null>,
-  "config" | "isEmpty" | "filepath"
-> & {
-  config: T;
-  isEmpty: boolean;
-  filepath: string | undefined;
-  missing: string[];
-};
 
 // Create custom defu that replaces arrays instead of concatenating them
 const defu = createDefu((obj, key, value) => {
@@ -54,169 +37,168 @@ const defu = createDefu((obj, key, value) => {
   return false;
 });
 
-function getExplorer(
-  moduleName: string,
-  searchStrategy?: SearchStrategy,
-  searchPlaces?: string[],
-): Explorer {
-  return cosmiconfig(moduleName, {
-    searchStrategy: searchStrategy || "global",
-    searchPlaces: searchPlaces || [
-      "package.json",
-      `.${moduleName}rc`,
-      `.${moduleName}rc.json`,
-      `.${moduleName}rc.yaml`,
-      `.${moduleName}rc.yml`,
-      `.${moduleName}rc.js`,
-      `.${moduleName}rc.ts`,
-      `.${moduleName}rc.mjs`,
-      `.${moduleName}rc.cjs`,
-      `.config/${moduleName}rc`,
-      `.config/${moduleName}rc.json`,
-      `.config/${moduleName}rc.yaml`,
-      `.config/${moduleName}rc.yml`,
-      `.config/${moduleName}rc.js`,
-      `.config/${moduleName}rc.ts`,
-      `.config/${moduleName}rc.mjs`,
-      `.config/${moduleName}rc.cjs`,
-      `${moduleName}.config.js`,
-      `${moduleName}.config.ts`,
-      `${moduleName}.config.mjs`,
-      `${moduleName}.config.cjs`,
-    ],
-    loaders: {
-      ".ts": jitiLoader,
-      ".js": jitiLoader,
-      ".cjs": jitiLoader,
-      ".mjs": jitiLoader,
-    },
+export function load<T extends UserInputConfig = UserInputConfig>(
+  options: { name?: string; filename?: string; cwd?: string } = {},
+) {
+  const name = options?.name;
+  const filename = options?.filename;
+  if (filename && !fs.existsSync(filename)) {
+    throw new Error(`Config file ${filename} not found`);
+  }
+  const configFile = filename?.replace(extname(filename), "");
+  const cwd = dirname(
+    resolve(options?.cwd || process.cwd(), filename || "config.json"),
+  );
+
+  return c12LoadConfig<T>({
+    name,
+    configFile,
+    cwd,
+    dotenv: false,
+    rcFile: false,
   });
 }
 
-async function search<T>(
-  moduleName: string,
-  searchFrom?: string,
-  searchStrategy: SearchStrategy = "global",
-  searchPlaces?: string[],
-): Promise<ConfigLoaderResult<T> | null> {
-  return getExplorer(moduleName, searchStrategy, searchPlaces).search(
-    searchFrom,
-  ) as Promise<ConfigLoaderResult<T>>;
-}
-
-async function load<T>(
-  moduleName: string,
-  filename: string,
-): Promise<ConfigLoaderResult<T> | null> {
-  if (fs.existsSync(filename)) {
-    return getExplorer(moduleName).load(filename) as Promise<
-      ConfigLoaderResult<T>
-    >;
+export type ConfigLayerMeta = Simplify<
+  C12ConfigLayerMeta & {
+    type: "module" | "file" | "env" | "prompt" | "overrides";
   }
+>;
 
-  throw new Error(`Config file ${filename} not found`);
-}
-
-export type ResolvedConfig<T> = {
-  config: T;
-  filepath: string | undefined;
-  missing: string[];
-  layers: Array<{
-    type: "module" | "file" | "env" | "overrides" | "default" | "prompt";
+export type ResolvedConfig<
+  T extends UserInputConfig,
+  MT extends ConfigLayerMeta = ConfigLayerMeta,
+> = Simplify<
+  C12ResolvedConfig<T, MT> & {
     filepath: string | undefined;
-    config: Partial<T> | undefined;
-    cwd: string | undefined;
-  }>;
+    missing: string[];
+  }
+>;
+
+const layersWithType = <T extends UserInputConfig>(
+  layers: Array<ConfigLayer<T, C12ConfigLayerMeta>> | undefined,
+  type: ConfigLayerMeta["type"],
+): Array<ConfigLayer<T, ConfigLayerMeta>> => {
+  return (
+    layers?.map(
+      (layer) =>
+        ({
+          ...layer,
+          meta: { ...layer?.meta, type },
+        }) as ConfigLayer<T, ConfigLayerMeta>,
+    ) ?? []
+  );
 };
 
+type BaseLoadConfigOptions<T extends UserInputConfig> = Omit<
+  C12LoadConfigOptions<T>,
+  | "name"
+  | "cwd"
+  | "configFile"
+  | "defaults"
+  | "defaultConfig"
+  | "overrides"
+  | "dotenv"
+  | "rcFile"
+  | "globalRc"
+>;
+
 export async function loadConfig<
-  T extends Record<string, any> = Record<string, any>,
-  TOverrides extends Record<string, any> = {
-    [K in keyof T]: T[K];
-  },
-  TDefaultConfig extends Record<string, any> = {
-    [K in keyof T]: T[K];
-  },
+  T extends UserInputConfig = UserInputConfig,
+  TOverrides extends UserInputConfig = Partial<T>,
+  TDefaultConfig extends UserInputConfig = Partial<T>,
   TKeys extends Array<Exclude<keyof T, number | symbol>> = Array<
     Exclude<keyof T, number | symbol>
   >,
-  TResult extends Record<string, any> = TOverrides &
-    TDefaultConfig & {
+  TResult extends UserInputConfig = Simplify<
+    {
       [K in TKeys[number]]?: any;
-    } & T,
->(options: {
-  name: string;
-  searchStrategy?: SearchStrategy;
-  searchPlaces?: string[];
-  envMap?: Record<string, keyof T>;
-  dotenv?: boolean;
-  envName?: string | false;
-  cwd?: string;
-  configFile?: string;
-  overrides?: Partial<TOverrides>;
-  defaultConfig?: Partial<TDefaultConfig>;
-  required?:
-    | TKeys
-    | ((config: TResult) => TKeys)
-    | ((config: TResult) => Promise<TKeys>);
-  prompt?:
-    | TKeys
-    | ((config: TResult) => TKeys)
-    | ((config: TResult) => Promise<TKeys>);
-  prompts?:
-    | false
-    | Array<PromptOptions>
-    | ((config: TResult) => Array<PromptOptions> | Promise<PromptOptions>);
-}): Promise<ResolvedConfig<TResult>> {
+    } & TDefaultConfig &
+      TOverrides &
+      T
+  >,
+>(
+  options: Simplify<
+    {
+      name: string;
+      envMap?: Record<string, keyof TResult>;
+      dotenv?: boolean;
+      envName?: string | false;
+      cwd?: string;
+      configFile?: string;
+      overrides?: ResolvableConfig<TOverrides>;
+      defaultConfig?: ResolvableConfig<TDefaultConfig>;
+      defaults?: TResult;
+      required?:
+        | TKeys
+        | ((config: TResult) => TKeys)
+        | ((config: TResult) => Promise<TKeys>);
+      prompt?:
+        | TKeys
+        | ((config: TResult) => TKeys)
+        | ((config: TResult) => Promise<TKeys>);
+      prompts?:
+        | false
+        | Array<PromptOptions>
+        | ((config: TResult) => Array<PromptOptions> | Promise<PromptOptions>);
+    } & BaseLoadConfigOptions<TResult>
+  >,
+): Promise<ResolvedConfig<TResult, ConfigLayerMeta>> {
+  const name = options?.name;
   const envName = options?.envName ?? process.env.NODE_ENV;
   const cwd = resolve(process.cwd(), options?.cwd || ".");
   const dotenv = options?.dotenv ?? true;
 
-  const result: ResolvedConfig<TResult> = {
+  const result: ResolvedConfig<TResult, ConfigLayerMeta> = {
     config: {} as TResult,
     filepath: undefined,
     missing: [],
     layers: [],
   };
 
+  const rcFiles = [
+    `.${name}rc.json`,
+    `.${name}rc.yaml`,
+    `.${name}rc.yml`,
+    `.${name}rc.js`,
+    `.${name}rc.mjs`,
+    `.${name}rc.cjs`,
+    `.${name}rc.ts`,
+    `.${name}rc.mts`,
+    `.${name}rc.cts`,
+  ];
+
+  const hasRcFilename = await findUp(rcFiles, { cwd });
+
   // 1: module config
-  const moduleConfig = await search<T>(
-    options.name,
+  const moduleConfig = await c12LoadConfig<TResult>({
+    ...options,
+    name: options.name,
     cwd,
-    options?.searchStrategy,
-    options?.searchPlaces,
-  );
+    configFile: hasRcFilename ? `.${name}rc` : undefined,
+    dotenv: false,
+    envName,
+    packageJson: true,
+    globalRc: true,
+    defaults: options.defaults as TResult,
+    defaultConfig: options.defaultConfig as ResolvableConfig<TResult>,
+    overrides: options.overrides as ResolvableConfig<TResult>,
+    merger: defu as any,
+  });
+
+  result.layers = layersWithType(moduleConfig.layers, "module");
 
   // 2: dedicated config file
   const extraConfig = options.configFile
-    ? await load<T>(options.name, options.configFile)
-    : ({} as ConfigLoaderResult<T>);
+    ? await load<TResult>({
+        name: options.name,
+        filename: options.configFile,
+        cwd,
+      })
+    : ({} as Awaited<ReturnType<typeof load<TResult>>>);
 
-  if (options.defaultConfig) {
-    result.layers.push({
-      type: "default",
-      config: options.defaultConfig as TResult,
-      filepath: undefined,
-      cwd: undefined,
-    });
-  }
-
-  if (!moduleConfig?.isEmpty) {
-    result.layers.push({
-      type: "module",
-      filepath: moduleConfig?.filepath,
-      config: moduleConfig?.config as TResult,
-      cwd,
-    });
-  }
-
-  if (options.configFile) {
-    result.layers.push({
-      type: "file",
-      filepath: extraConfig?.filepath,
-      config: extraConfig?.config as TResult,
-      cwd: undefined,
-    });
+  if (extraConfig.layers) {
+    result.layers.push(...layersWithType(extraConfig.layers, "file"));
   }
 
   // 3: merge config
@@ -226,13 +208,13 @@ export async function loadConfig<
     extraConfig?.config ?? {},
     moduleConfig?.config ?? {},
     options.defaultConfig,
-  ) as T;
+  ) as TResult;
 
   // extraConfig filepath is preferred over moduleConfig filepath because it's more specific
-  result.filepath = extraConfig?.filepath || moduleConfig?.filepath;
+  result.filepath = extraConfig?.configFile || moduleConfig?.configFile;
 
   // load environment config
-  let envConfig: Partial<T> = {};
+  let envConfig: Partial<TResult> = {};
   if (dotenv) {
     const envMap = options?.envMap ?? {};
     const dotenvx = await import("@dotenvx/dotenvx");
@@ -246,7 +228,7 @@ export async function loadConfig<
     // allow overriding any configuration by using the pattern process.env.{NAME}_CONFIG_{PATH}.
     envConfig = applyEnv(klona(_config), {
       prefix: `${snakeCase(options.name).toUpperCase()}_CONFIG_`,
-    }) as T;
+    }) as TResult;
 
     // apply environment variables from envMap
     for (const [envKey, key] of Object.entries(envMap)) {
@@ -257,18 +239,18 @@ export async function loadConfig<
     }
 
     result.layers.push({
-      type: "env",
+      meta: { type: "env" },
       config: envConfig as TResult,
-      filepath: undefined,
+      configFile: undefined,
       cwd: undefined,
     });
   }
 
   if (options.overrides) {
     result.layers.push({
-      type: "overrides",
+      meta: { type: "overrides" },
       config: options.overrides as TResult,
-      filepath: undefined,
+      configFile: undefined,
       cwd: undefined,
     });
   }
@@ -331,10 +313,11 @@ export async function loadConfig<
       const missingPrompts = promptKeys.map((key) => findPrompt(key as string));
 
       const response = await promptFn<Partial<T>>(missingPrompts);
+
       result.layers.push({
-        type: "prompt",
+        meta: { type: "prompt" },
         config: response as TResult,
-        filepath: undefined,
+        configFile: undefined,
         cwd: undefined,
       });
 
@@ -345,8 +328,8 @@ export async function loadConfig<
   return result;
 }
 
-export type LoadConfigOptions<T extends Record<string, any>> = Parameters<
-  typeof loadConfig<T>
->[0];
+export type LoadConfigOptions<T extends UserInputConfig> = Simplify<
+  Parameters<typeof loadConfig<T>>[0]
+>;
 
 export type { Prompt } from "enquirer";
