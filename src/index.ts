@@ -201,17 +201,14 @@ export async function loadConfig<
   ];
 
   const rcFilename = await findUp(rcFiles, { cwd });
+  const isLocalRc = rcFilename && rcFilename.startsWith(cwd);
   let globalRcConfig = {} as Awaited<ReturnType<typeof load<TResult>>>;
-  if (rcFilename) {
-    const isLocalRc = rcFilename.startsWith(cwd);
-
-    if (isLocalRc || options.globalRc) {
-      globalRcConfig = await load<TResult>({
-        name: options.name,
-        filename: rcFilename,
-        cwd,
-      });
-    }
+  if (rcFilename && (isLocalRc || options.globalRc)) {
+    globalRcConfig = await load<TResult>({
+      name: options.name,
+      filename: rcFilename,
+      cwd,
+    });
   }
 
   // 4: merge config
@@ -219,8 +216,9 @@ export async function loadConfig<
     {},
     options.overrides,
     extraConfig?.config ?? {},
+    isLocalRc ? (globalRcConfig?.config ?? {}) : {},
     moduleConfig?.config ?? {},
-    globalRcConfig?.config ?? {},
+    isLocalRc ? {} : (globalRcConfig?.config ?? {}),
     options.defaultConfig,
   ) as TResult;
 
