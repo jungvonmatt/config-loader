@@ -144,7 +144,7 @@ export async function loadConfig<
   >,
 ): Promise<ResolvedConfig<TResult, ConfigLayerMeta>> {
   const name = options?.name;
-  const envName = options?.envName ?? process.env.NODE_ENV;
+  const envName = options?.envName ?? process.env.NODE_ENV ?? "local";
   const cwd = resolve(process.cwd(), options?.cwd || ".");
   const dotenv = options?.dotenv ?? true;
 

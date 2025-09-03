@@ -367,6 +367,26 @@ describe("Config Loading", () => {
       });
     });
 
+    it("applies environment variables from locale if envName & NODE_ENV", async () => {
+      process.env.NODE_ENV = undefined;
+
+      const { config: dotenvxConfig } = await import("@dotenvx/dotenvx");
+      vi.mocked(dotenvxConfig).mockImplementation(() => ({}));
+
+      const _result = await loadConfig({
+        name: "myapp",
+      });
+
+      expect(dotenvxConfig).toHaveBeenCalledWith({
+        path: [
+          expect.stringContaining(".env.local"),
+          expect.stringContaining(".env"),
+        ],
+        ignore: ["MISSING_ENV_FILE"],
+        quiet: true,
+      });
+    });
+
     it("disables environment loading when envName is false", async () => {
       const { config: dotenvxConfig } = await import("@dotenvx/dotenvx");
 
