@@ -38,10 +38,16 @@ const defu = createDefu((obj, key, value) => {
 });
 
 export function load<T extends UserInputConfig = UserInputConfig>(
-  options: { name?: string; filename?: string; cwd?: string } = {},
+  options: {
+    name?: string;
+    filename?: string;
+    cwd?: string;
+    envName?: string | false;
+  } = {},
 ) {
   const name = options?.name;
   const filename = options?.filename;
+  const envName = options?.envName;
   if (filename && !fs.existsSync(filename)) {
     throw new Error(`Config file ${filename} not found`);
   }
@@ -54,6 +60,7 @@ export function load<T extends UserInputConfig = UserInputConfig>(
     name,
     configFile,
     cwd,
+    envName,
     dotenv: false,
     rcFile: false,
   });
@@ -179,6 +186,7 @@ export async function loadConfig<
     ? await load<TResult>({
         name: options.name,
         filename: options.configFile,
+        envName,
         cwd,
       })
     : ({} as Awaited<ReturnType<typeof load<TResult>>>);
@@ -208,6 +216,7 @@ export async function loadConfig<
       name: options.name,
       filename: rcFilename,
       cwd,
+      envName,
     });
   }
 

@@ -880,4 +880,459 @@ describe("Config Loading", () => {
       expect(result.config.api.url).toBe("http://localhost:3000"); // from main $development
     });
   });
+
+  describe("Environment Configuration Precedence", () => {
+    // Temporarily unmock dotenvx for these tests to test real behavior
+    beforeEach(async () => {
+      // Clear any existing environment variables that might interfere
+      delete process.env.NAME;
+      delete process.env.API_URL;
+      delete process.env.DEBUG;
+      delete process.env.DATABASE_URL;
+      delete process.env.API_KEY;
+
+      // Unmock dotenvx to use real implementation
+      vi.doUnmock("@dotenvx/dotenvx");
+    });
+
+    afterEach(async () => {
+      // Clean up environment variables
+      delete process.env.NAME;
+      delete process.env.API_URL;
+      delete process.env.DEBUG;
+      delete process.env.DATABASE_URL;
+      delete process.env.API_KEY;
+
+      // Restore the mock for other tests
+      vi.doMock("@dotenvx/dotenvx", () => ({
+        config: vi.fn(() => ({})),
+      }));
+    });
+
+    it("ensures .env.{envName} files override .env files", async () => {
+      // Create .env file with general config
+      const envPath = resolve(testDir, ".env");
+      await writeFile(envPath, "NAME=general\nAPI_URL=https://general.api.com");
+
+      // Create .env.local file with environment-specific config
+      const envLocalPath = resolve(testDir, ".env.local");
+      await writeFile(envLocalPath, "NAME=local\nDEBUG=true");
+
+      const result = await loadConfig({
+        name: "myapp",
+        cwd: testDir,
+        envName: "local",
+        envMap: {
+          NAME: "name",
+          API_URL: "apiUrl",
+          DEBUG: "debug",
+        },
+      });
+
+      // .env.local should override .env for NAME
+      expect(result.config.name).toBe("local");
+      // .env.local should add new values
+      expect(result.config.debug).toBe(true);
+      // .env should provide fallback for values not in .env.local
+      expect(result.config.apiUrl).toBe("https://general.api.com");
+    });
+
+    it("ensures .env.{envName} files override .env files with different envNames", async () => {
+      // Create .env file
+      const envPath = resolve(testDir, ".env");
+      await writeFile(envPath, "DATABASE_URL=postgres://localhost/general");
+
+      // Create .env.staging file
+      const envStagingPath = resolve(testDir, ".env.staging");
+      await writeFile(
+        envStagingPath,
+        "DATABASE_URL=postgres://staging-db/myapp",
+      );
+
+      // Test with staging environment
+      const stagingResult = await loadConfig({
+        name: "myapp",
+        cwd: testDir,
+        envName: "staging",
+        envMap: {
+          DATABASE_URL: "databaseUrl",
+        },
+      });
+
+      expect(stagingResult.config.databaseUrl).toBe(
+        "postgres://staging-db/myapp",
+      );
+
+      // Clean up environment for next test
+      delete process.env.DATABASE_URL;
+
+      // Create .env.production file
+      const envProductionPath = resolve(testDir, ".env.production");
+      await writeFile(
+        envProductionPath,
+        "DATABASE_URL=postgres://prod-db/myapp",
+      );
+
+      // Test with production environment
+      const productionResult = await loadConfig({
+        name: "myapp",
+        cwd: testDir,
+        envName: "production",
+        envMap: {
+          DATABASE_URL: "databaseUrl",
+        },
+      });
+
+      expect(productionResult.config.databaseUrl).toBe(
+        "postgres://prod-db/myapp",
+      );
+
+      // Clean up environment for next test
+      delete process.env.DATABASE_URL;
+
+      // Test with custom environment that doesn't exist - should fall back to .env
+      const customResult = await loadConfig({
+        name: "myapp",
+        cwd: testDir,
+        envName: "testing",
+        envMap: {
+          DATABASE_URL: "databaseUrl",
+        },
+      });
+
+      expect(customResult.config.databaseUrl).toBe(
+        "postgres://localhost/general",
+      );
+    });
+
+    it("ensures environment-specific config sections override general config", async () => {
+      const configPath = resolve(testDir, "app.config.js");
+      await writeFile(
+        configPath,
+        `module.exports = {
+          // General configuration
+          database: {
+            host: "localhost",
+            port: 5432,
+            ssl: false
+          },
+          api: {
+            url: "https://api.example.com",
+            timeout: 5000
+          },
+          logLevel: "info",
+
+          // Environment-specific overrides
+          $development: {
+            database: {
+              host: "dev-db",
+              ssl: false
+            },
+            api: {
+              url: "http://localhost:3000"
+            },
+            logLevel: "debug"
+          },
+
+          $production: {
+            database: {
+              host: "prod-db",
+              port: 5433,
+              ssl: true
+            },
+            api: {
+              timeout: 10_000
+            },
+            logLevel: "error"
+          },
+
+          $env: {
+            staging: {
+              database: {
+                host: "staging-db"
+              },
+              logLevel: "warn"
+            },
+            qa: {
+              api: {
+                url: "https://qa.api.example.com"
+              },
+              logLevel: "verbose"
+            }
+          }
+        };`,
+      );
+
+      // Test development environment
+      const devResult = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "development",
+      });
+
+      expect(devResult.config.database.host).toBe("dev-db");
+      expect(devResult.config.database.port).toBe(5432); // inherited from general
+      expect(devResult.config.database.ssl).toBe(false);
+      expect(devResult.config.api.url).toBe("http://localhost:3000");
+      expect(devResult.config.api.timeout).toBe(5000); // inherited from general
+      expect(devResult.config.logLevel).toBe("debug");
+
+      // Test production environment
+      const prodResult = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "production",
+      });
+
+      expect(prodResult.config.database.host).toBe("prod-db");
+      expect(prodResult.config.database.port).toBe(5433);
+      expect(prodResult.config.database.ssl).toBe(true);
+      expect(prodResult.config.api.url).toBe("https://api.example.com"); // inherited from general
+      expect(prodResult.config.api.timeout).toBe(10_000);
+      expect(prodResult.config.logLevel).toBe("error");
+
+      // Test custom environment via $env
+      const stagingResult = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "staging",
+      });
+
+      expect(stagingResult.config.database.host).toBe("staging-db");
+      expect(stagingResult.config.database.port).toBe(5432); // inherited from general
+      expect(stagingResult.config.database.ssl).toBe(false); // inherited from general
+      expect(stagingResult.config.api.url).toBe("https://api.example.com"); // inherited from general
+      expect(stagingResult.config.api.timeout).toBe(5000); // inherited from general
+      expect(stagingResult.config.logLevel).toBe("warn");
+
+      // Test another custom environment
+      const qaResult = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "qa",
+      });
+
+      expect(qaResult.config.database.host).toBe("localhost"); // inherited from general
+      expect(qaResult.config.api.url).toBe("https://qa.api.example.com");
+      expect(qaResult.config.logLevel).toBe("verbose");
+    });
+
+    it("ensures $env takes precedence over $envName when both exist", async () => {
+      const configPath = resolve(testDir, "app.config.js");
+      await writeFile(
+        configPath,
+        `module.exports = {
+          logLevel: "info",
+          timeout: 5000,
+
+          $development: {
+            logLevel: "debug",
+            timeout: 1000
+          },
+
+          $env: {
+            development: {
+              logLevel: "verbose",
+              debug: true
+            }
+          }
+        };`,
+      );
+
+      const result = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "development",
+      });
+
+      // $env.development should take precedence over $development
+      expect(result.config.logLevel).toBe("verbose");
+      expect(result.config.debug).toBe(true);
+      expect(result.config.timeout).toBe(1000); // from $development since not overridden in $env
+    });
+
+    it("combines .env file precedence with config environment sections", async () => {
+      // Create .env files
+      const envPath = resolve(testDir, ".env");
+      await writeFile(
+        envPath,
+        "DATABASE_URL=postgres://localhost/general\nAPI_KEY=general-key",
+      );
+
+      const envStagingPath = resolve(testDir, ".env.staging");
+      await writeFile(
+        envStagingPath,
+        "DATABASE_URL=postgres://staging-db/myapp",
+      );
+
+      // Create config with environment sections
+      const configPath = resolve(testDir, "app.config.js");
+      await writeFile(
+        configPath,
+        `module.exports = {
+          server: {
+            port: 3000,
+            host: "localhost"
+          },
+
+          $env: {
+            staging: {
+              server: {
+                port: 8080,
+                host: "0.0.0.0"
+              },
+              cache: {
+                enabled: true
+              }
+            }
+          }
+        };`,
+      );
+
+      const result = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "staging",
+        envMap: {
+          DATABASE_URL: "databaseUrl",
+          API_KEY: "apiKey",
+        },
+      });
+
+      // Environment variables should be loaded with .env.staging precedence
+      expect(result.config.databaseUrl).toBe("postgres://staging-db/myapp");
+      expect(result.config.apiKey).toBe("general-key"); // from .env fallback
+
+      // Config environment sections should also be applied
+      expect((result.config as any).server.port).toBe(8080);
+      expect((result.config as any).server.host).toBe("0.0.0.0");
+      expect((result.config as any).cache.enabled).toBe(true);
+    });
+
+    it("handles precedence when envName is false", async () => {
+      // Create .env files
+      const envPath = resolve(testDir, ".env");
+      await writeFile(envPath, "NAME=general");
+
+      const envLocalPath = resolve(testDir, ".env.local");
+      await writeFile(envLocalPath, "NAME=local");
+
+      // Create config with environment sections
+      const configPath = resolve(testDir, "app.config.js");
+      await writeFile(
+        configPath,
+        `module.exports = {
+          value: "general",
+          $development: {
+            value: "development"
+          }
+        };`,
+      );
+
+      process.env.NODE_ENV = "development";
+
+      const result = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: false,
+        envMap: {
+          NAME: "name",
+        },
+      });
+
+      // Should only load .env (not .env.local) when envName is false
+      expect(result.config.name).toBe("general");
+
+      // Should not apply environment-specific config sections
+      expect((result.config as any).value).toBe("general");
+    });
+
+    it("ensures environment config works in extended configurations", async () => {
+      // Create base config
+      const baseConfigPath = resolve(testDir, "base.config.js");
+      await writeFile(
+        baseConfigPath,
+        `module.exports = {
+          database: {
+            host: "base-host",
+            port: 5432
+          },
+
+          $production: {
+            database: {
+              host: "base-prod-host",
+              ssl: true
+            }
+          }
+        };`,
+      );
+
+      // Create main config that extends base
+      const mainConfigPath = resolve(testDir, "app.config.js");
+      await writeFile(
+        mainConfigPath,
+        `module.exports = {
+          extends: "./base.config.js",
+          database: {
+            name: "myapp"
+          },
+
+          $production: {
+            database: {
+              host: "main-prod-host",
+              pool: 20
+            }
+          }
+        };`,
+      );
+
+      const result = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "production",
+      });
+
+      // Environment configs should be merged across layers
+      expect(result.config.database.host).toBe("main-prod-host"); // main overrides base
+      expect(result.config.database.ssl).toBe(true); // from base $production
+      expect(result.config.database.pool).toBe(20); // from main $production
+      expect(result.config.database.port).toBe(5432); // from base general
+      expect(result.config.database.name).toBe("myapp"); // from main general
+    });
+
+    it("verifies layer order maintains environment precedence", async () => {
+      // Create config with both general and environment-specific settings
+      const configPath = resolve(testDir, "app.config.js");
+      await writeFile(
+        configPath,
+        `module.exports = {
+          feature: "general",
+          database: {
+            host: "localhost"
+          },
+
+          $test: {
+            feature: "test-specific",
+            database: {
+              host: "test-db"
+            }
+          }
+        };`,
+      );
+
+      const result = await loadConfig({
+        name: "app",
+        cwd: testDir,
+        envName: "test",
+      });
+
+      // Verify the layers contain both general and environment-specific config
+      expect(result.layers).toBeDefined();
+      expect(result.layers!.length).toBeGreaterThan(0);
+
+      // Environment-specific values should override general ones
+      expect(result.config.feature).toBe("test-specific");
+      expect(result.config.database.host).toBe("test-db");
+    });
+  });
 });
