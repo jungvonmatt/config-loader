@@ -32,5 +32,5 @@ jobs:
         with:
           args: >
             -Dsonar.projectKey=jungvonmatt_config-loader
-            -Dsonar.organization=<jungvonmatt
+            -Dsonar.organization=jungvonmatt
             -Dsonar.host.url=https://sonarcloud.io
