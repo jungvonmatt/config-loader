@@ -24,8 +24,13 @@ jobs:
       - run: pnpm build
       - run: pnpm vitest --coverage
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_PROJECT_KEY: jungvonmatt_config-loader
           SONAR_ORGANIZATION: jungvonmatt
+        with:
+          args: >
+            -Dsonar.projectKey=jungvonmatt_config-loader
+            -Dsonar.organization=jungvonmatt
+            -Dsonar.host.url=https://sonarcloud.io
