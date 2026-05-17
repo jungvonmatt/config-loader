@@ -22,7 +22,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm test:types
       - run: pnpm build
-      - run: pnpm vitest --coverage
+      - run: pnpm vp test run --coverage
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
