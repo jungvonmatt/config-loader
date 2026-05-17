@@ -12,3 +12,5 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+    typescript: "*"
+    "@vitest/coverage-v8": "*"
