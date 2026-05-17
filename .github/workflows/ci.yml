@@ -13,16 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm i -fg corepack && corepack enable
-      - uses: actions/setup-node@v4
+      - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: 22
-          cache: "pnpm"
-      - run: pnpm install
-      - run: pnpm lint
-      - run: pnpm test:types
-      - run: pnpm build
-      - run: pnpm vp test run --coverage
+          cache: true
+      - run: vp run lint
+      - run: vp run test:types
+      - run: vp run build
+      - run: vp test run --coverage
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
