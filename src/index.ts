@@ -172,7 +172,7 @@ export async function loadConfig<
     dotenv: false,
     envName,
     packageJson: true,
-    globalRc: true,
+    globalRc: options.globalRc ?? true,
     defaults: options.defaults as TResult,
     defaultConfig: options.defaultConfig as ResolvableConfig<TResult>,
     overrides: options.overrides as ResolvableConfig<TResult>,
