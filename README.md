@@ -182,7 +182,6 @@ Set `globalRc: false` to exclude user and workspace rc files; this option does n
 
 Validate the merged config with your application's schema before use. `required` checks key presence only.
 Config values and returned layers can contain credentials. Redact them before logging, and use `type: "password"` for credential prompts.
-See the [security assessment](SECURITY-AUDIT.md) for findings, dependency audit results, and review scope.
 
 ## API
 
