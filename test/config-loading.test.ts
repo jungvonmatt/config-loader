@@ -44,6 +44,30 @@ describe("Config Loading", () => {
   });
 
   describe("Configuration File Loading", () => {
+    it.each([false, true])(
+      "respects globalRc=%s for user rc files",
+      async (globalRc) => {
+        const userConfigDir = resolve(testDir, "user-config");
+        const projectDir = resolve(testDir, "project");
+        await mkdir(userConfigDir, { recursive: true });
+        await mkdir(projectDir, { recursive: true });
+        process.env.XDG_CONFIG_HOME = userConfigDir;
+        await writeFile(
+          resolve(userConfigDir, ".isolatedrc"),
+          "injected=true\n",
+        );
+
+        const result = await loadConfig({
+          name: "isolated",
+          cwd: projectDir,
+          globalRc,
+          dotenv: false,
+        });
+
+        expect(result.config).toEqual(globalRc ? { injected: true } : {});
+      },
+    );
+
     it("loads configuration from .js config file", async () => {
       const configPath = resolve(testDir, "myapp.config.js");
       await writeFile(
