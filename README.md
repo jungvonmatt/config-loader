@@ -174,6 +174,16 @@ For example, with `name: "myapp"`:
 - `MYAPP_CONFIG_PORT=8080` sets `config.port = 8080`
 - `MYAPP_CONFIG_DATABASE_URL=...` sets `config.databaseUrl = ...`
 
+## Security
+
+Load configuration only from trusted directories and sources. JavaScript/TypeScript configs and c12 extensions execute code with your process permissions.
+Dotenvx also supports command substitution in `.env` files. Set `dotenv: false` when dotenv loading is unnecessary.
+Set `globalRc: false` to exclude user and workspace rc files; this option does not sandbox project configuration.
+
+Validate the merged config with your application's schema before use. `required` checks key presence only.
+Config values and returned layers can contain credentials. Redact them before logging, and use `type: "password"` for credential prompts.
+See the [security assessment](SECURITY-AUDIT.md) for findings, dependency audit results, and review scope.
+
 ## API
 
 ### `loadConfig<T>(options: LoadConfigOptions<T>): Promise<ResolvedConfig<T>>`
@@ -189,6 +199,7 @@ For example, with `name: "myapp"`:
 | `envMap`        | `Record<string, keyof T>`                                                      | `{}`                   | Map environment variable names to config keys                                                                                                                                                |
 | `dotenv`        | `boolean`                                                                      | `true`                 | Whether to load .env files                                                                                                                                                                   |
 | `envName`       | `string \| false`                                                              | `process.env.NODE_ENV` | Environment name for .env.{envName} file                                                                                                                                                     |
+| `globalRc`      | `boolean`                                                                      | `true`                 | Whether to load user and workspace rc files in addition to project configuration                                                                                                             |
 | `cwd`           | `string`                                                                       | `process.cwd()`        | Working directory for file searching                                                                                                                                                         |
 | `configFile`    | `string`                                                                       | `undefined`            | Path to a specific config file to load                                                                                                                                                       |
 | `prompt`        | `Array<keyof T> \| ((config: T) => Array<keyof T> \| Promise<Array<keyof T>>)` | `[]`                   | Array of configuration keys to prompt for, even if they exist in the config. Can be a function that returns the keys. Keys will be sorted based on the order in `prompts` if provided.       |
