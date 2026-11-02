@@ -29,7 +29,7 @@
     "audit": "pnpm audit --audit-level=low"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "5.0.5",
     "automd": "^0.4.3",
     "changelogen": "^0.6.2",
@@ -42,7 +42,7 @@
   "packageManager": "pnpm@10.34.7",
   "dependencies": {
     "@dotenvx/dotenvx": "^1.75.1",
-    "c12": "4.0.0-rc.3",
+    "c12": "4.0.0-rc.4",
     "defu": "^6.1.7",
     "destr": "^2.0.5",
     "enquirer": "^2.4.1",
