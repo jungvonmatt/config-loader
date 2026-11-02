@@ -8,12 +8,3 @@ onlyBuiltDependencies: []
 peerDependencyRules:
   allowedVersions:
     vite: "1.4.0"
-    "unbuild>typescript": "^6.0.3"
-# GHSA-gcqx-w48m-w2h4: dev-only, no upstream fix available.
-# node-resolve@16.0.3 only calls deepmerge({}, defaults) with static literals;
-# no vulnerable input flow is reachable in the current locked build graph.
-# Review again on 2026-11-09 and whenever this dependency path changes.
-# https://github.com/advisories/GHSA-gcqx-w48m-w2h4
-auditConfig:
-  ignoreGhsas:
-    - GHSA-gcqx-w48m-w2h4
